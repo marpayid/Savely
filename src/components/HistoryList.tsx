@@ -162,7 +162,11 @@ export const HistoryList: React.FC<HistoryListProps> = ({
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className="text-sm font-semibold text-white truncate max-w-full sm:max-w-md" title={item.filename}>
+                      <span
+                        className="text-sm font-semibold text-white leading-snug break-words max-w-full"
+                        style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+                        title={item.filename}
+                      >
                         {item.filename}
                       </span>
                       <span

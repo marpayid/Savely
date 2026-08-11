@@ -340,21 +340,25 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
                 </span>
               </div>
 
-              <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 flex-shrink-0">
+              <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 min-w-0 w-full overflow-hidden">
+                <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1 w-full overflow-hidden">
+                  <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 flex-shrink-0 mt-0.5 sm:mt-0">
                     {getCategoryIcon(fileMetadata.category)}
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-white truncate" title={fileMetadata.filename}>
+                  <div className="min-w-0 flex-1 overflow-hidden">
+                    <p
+                      className="text-sm font-semibold text-white leading-snug break-words max-w-full"
+                      style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+                      title={fileMetadata.filename}
+                    >
                       {fileMetadata.filename}
                     </p>
-                    <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
+                    <div className="flex items-center gap-2 text-xs text-slate-400 mt-1 flex-wrap">
                       <span>{formatBytes(fileMetadata.fileSize)}</span>
                       <span>•</span>
                       <span>{fileMetadata.category}</span>
                       <span>•</span>
-                      <span className="truncate max-w-[140px] text-slate-500">{fileMetadata.contentType}</span>
+                      <span className="text-slate-500 break-all">{fileMetadata.contentType}</span>
                     </div>
                   </div>
                 </div>
