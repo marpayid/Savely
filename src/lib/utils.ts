@@ -100,9 +100,44 @@ export async function downloadFileViaBlob(
     .replace(/[/\\?%*:|"<>]/g, '_')
     .trim() || 'download-file.mp4';
 
+  if (onProgress) onProgress('Mengunduh berkas media...');
+
+  // Attempt 1: Direct browser fetch to direct media URL if HTTP/HTTPS
+  if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
+    try {
+      const directRes = await fetch(cleanUrl);
+      const contentType = directRes.headers.get('content-type') || '';
+
+      if (directRes.ok && !contentType.toLowerCase().includes('text/html')) {
+        const blob = await directRes.blob();
+        if (blob && blob.size > 0) {
+          const blobUrl = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.style.display = 'none';
+          a.href = blobUrl;
+          a.download = safeFilename;
+          document.body.appendChild(a);
+          a.click();
+
+          setTimeout(() => {
+            try {
+              window.URL.revokeObjectURL(blobUrl);
+              a.remove();
+            } catch {
+              // ignore
+            }
+          }, 2000);
+          return;
+        }
+      }
+    } catch {
+      // If direct fetch fails (e.g. CORS), fallback to proxy/redirect endpoint
+    }
+  }
+
+  // Attempt 2: Via /api/download (which returns 302 redirect or media stream)
   const apiBase = getApiBaseUrl();
   const proxyUrl = `${apiBase}/api/download?url=${encodeURIComponent(cleanUrl)}&filename=${encodeURIComponent(safeFilename)}`;
-  if (onProgress) onProgress('Mengunduh data berkas dari server...');
 
   let res: Response;
   try {

@@ -505,7 +505,7 @@ app.get('/api/inspect', async (req, res) => {
   }
 });
 
-// API: Proxy Stream Download
+// API: Download Redirect (Avoids Netlify 6MB serverless payload limit)
 app.get('/api/download', async (req, res) => {
   let targetUrl = (req.query.url as string || '').trim();
   let customFilename = (req.query.filename as string || '').trim();
@@ -547,69 +547,8 @@ app.get('/api/download', async (req, res) => {
     return res.status(400).send('URL target unduhan tidak valid.');
   }
 
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // 1 min timeout for streaming
-
-    const response = await fetch(targetUrl, {
-      method: 'GET',
-      signal: controller.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Referer': targetUrl.includes('tikwm') ? 'https://www.tikwm.com/' : 'https://www.tiktok.com/',
-        'Accept': '*/*',
-      },
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      return res.status(response.status).send('Gagal mengunduh file dari server sumber.');
-    }
-
-    const contentType = response.headers.get('content-type') || 'application/octet-stream';
-
-    if (contentType.toLowerCase().includes('text/html')) {
-      return res.status(400).send('URL ini tidak menyediakan file yang dapat diunduh secara langsung.');
-    }
-
-    const metadata = parseFileMetadata(targetUrl, response.headers);
-    const rawDownloadName = customFilename || metadata.filename;
-    const asciiFilename = rawDownloadName.replace(/[^\x20-\x7E]/g, '_').replace(/["\r\n]/g, '');
-    const downloadName = sanitizeFilename(asciiFilename || 'download-file.mp4');
-
-    res.setHeader('Content-Type', contentType);
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="${downloadName}"; filename*=UTF-8''${encodeURIComponent(rawDownloadName)}`
-    );
-
-    const contentLength = response.headers.get('content-length');
-    if (contentLength) {
-      res.setHeader('Content-Length', contentLength);
-    }
-
-    if (response.body) {
-      const reader = response.body.getReader();
-      const readChunk = async () => {
-        const { done, value } = await reader.read();
-        if (done) {
-          res.end();
-          return;
-        }
-        res.write(Buffer.from(value));
-        await readChunk();
-      };
-      await readChunk();
-    } else {
-      res.end();
-    }
-  } catch (err: unknown) {
-    console.error('Download proxy error:', err);
-    if (!res.headersSent) {
-      res.status(500).send('Terjadi kesalahan saat memproses download.');
-    }
-  }
+  // Redirect browser directly to the media URL to avoid Netlify Function 6MB payload limits
+  return res.redirect(302, targetUrl);
 });
 
 export { app };
