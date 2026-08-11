@@ -20,19 +20,6 @@ export interface InspectResult {
 
 export type DownloadStatus = 'idle' | 'inspecting' | 'downloading' | 'success' | 'error';
 
-export interface HistoryItem {
-  id: string;
-  filename: string;
-  url: string;
-  date: string;
-  timestamp: number;
-  status: 'Sukses' | 'Gagal';
-  fileSize: number;
-  extension: string;
-  category: string;
-  errorMessage?: string;
-}
-
 export interface SampleLink {
   label: string;
   url: string;

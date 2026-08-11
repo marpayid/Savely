@@ -1,22 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Header } from './components/Header';
 import { UrlInputSection } from './components/UrlInputSection';
 import { SampleLinks } from './components/SampleLinks';
-import { HistoryList } from './components/HistoryList';
 import { SupportedFormats } from './components/SupportedFormats';
 import { Footer } from './components/Footer';
 import { Toast } from './components/Toast';
-import { HistoryItem } from './types';
-import { loadHistoryFromStorage } from './lib/utils';
 
 export default function App() {
-  const [history, setHistory] = useState<HistoryItem[]>([]);
   const [urlInput, setUrlInput] = useState<string>('');
   const [toast, setToast] = useState<{ message: string; type?: 'success' | 'info' | 'error' } | null>(null);
-
-  useEffect(() => {
-    setHistory(loadHistoryFromStorage());
-  }, []);
 
   const showToast = (message: string, type: 'success' | 'info' | 'error' = 'info') => {
     setToast({ message, type });
@@ -25,12 +17,6 @@ export default function App() {
   const handleSelectSample = (url: string) => {
     setUrlInput(url);
     showToast('URL sampel dipilih. Klik Download untuk menguji.', 'info');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleSelectHistoryUrl = (url: string) => {
-    setUrlInput(url);
-    showToast('URL dari riwayat dimuat ke kolom input.', 'info');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -47,18 +33,10 @@ export default function App() {
         <UrlInputSection
           urlInput={urlInput}
           setUrlInput={setUrlInput}
-          onHistoryUpdated={setHistory}
           onToast={showToast}
         />
 
         <SampleLinks onSelectSample={handleSelectSample} />
-
-        <HistoryList
-          history={history}
-          onHistoryUpdated={setHistory}
-          onToast={showToast}
-          onSelectUrl={handleSelectHistoryUrl}
-        />
 
         <SupportedFormats />
       </main>

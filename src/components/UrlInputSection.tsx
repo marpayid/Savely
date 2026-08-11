@@ -12,21 +12,17 @@ import {
   Image as ImageIcon,
   Archive,
   File,
-  ArrowRight,
-  ExternalLink,
 } from 'lucide-react';
-import { FileMetadata, DownloadStatus, HistoryItem } from '../types';
-import { formatBytes, addHistoryEntry, downloadFileViaBlob, getApiBaseUrl } from '../lib/utils';
+import { FileMetadata, DownloadStatus } from '../types';
+import { formatBytes, downloadFileViaBlob, getApiBaseUrl } from '../lib/utils';
 
 interface UrlInputSectionProps {
-  onHistoryUpdated: (newHistory: HistoryItem[]) => void;
   onToast: (msg: string, type?: 'success' | 'info' | 'error') => void;
   urlInput: string;
   setUrlInput: (val: string) => void;
 }
 
 export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
-  onHistoryUpdated,
   onToast,
   urlInput,
   setUrlInput,
@@ -135,18 +131,6 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
         const errorText = (data && data.error) ? data.error : 'URL ini tidak menyediakan file yang dapat diunduh secara langsung.';
         setErrorMessage(errorText);
         setStatus('error');
-
-        // Add failed history entry
-        const updatedHistory = addHistoryEntry({
-          filename: targetUrl.split('/').pop() || 'Unknown File',
-          url: targetUrl,
-          status: 'Gagal',
-          fileSize: 0,
-          extension: 'UNK',
-          category: 'Error',
-          errorMessage: errorText,
-        });
-        onHistoryUpdated(updatedHistory);
         return;
       }
 
@@ -178,32 +162,10 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
       setStatus('success');
       setStatusMessage('Download berhasil');
       onToast('Download berhasil!', 'success');
-
-      // Save to localStorage history
-      const updatedHistory = addHistoryEntry({
-        filename: downloadFilename,
-        url: targetUrl,
-        status: 'Sukses',
-        fileSize: meta.fileSize,
-        extension: meta.extension,
-        category: meta.category,
-      });
-      onHistoryUpdated(updatedHistory);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Terjadi kesalahan tidak terduga saat menghubungi server.';
       setErrorMessage(msg);
       setStatus('error');
-
-      const updatedHistory = addHistoryEntry({
-        filename: targetUrl,
-        url: targetUrl,
-        status: 'Gagal',
-        fileSize: 0,
-        extension: 'ERR',
-        category: 'Error',
-        errorMessage: msg,
-      });
-      onHistoryUpdated(updatedHistory);
     }
   };
 
