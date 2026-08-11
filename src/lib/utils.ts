@@ -193,7 +193,6 @@ async function triggerVideoDownloadOrShare(
     : safeAsciiName;
 
   // 1. Mobile Web Share API Flow (iOS Safari & Android Chrome)
-  // MUST execute ONLY this method on mobile when supported to prevent double-downloads / double-actions!
   if (isMobile && typeof navigator !== 'undefined' && 'canShare' in navigator) {
     try {
       const file = new File([videoBlob], shareFilename, { type: videoMime });
@@ -209,9 +208,7 @@ async function triggerVideoDownloadOrShare(
         // User explicitly canceled/dismissed the share sheet: STOP, do not trigger secondary download
         return;
       }
-      // On mobile, if navigator.share fails or gesture expired during inspect, STOP HERE.
-      // Do NOT fall through to anchor click because that produces the unwanted duplicate download in Files/Downloads.
-      throw new Error('Izin simpan video browser terbatas. Silakan ketuk tombol "Unduh" pada kartu informasi file untuk menyimpan video.');
+      // If navigator.share fails or gesture expired, fallback smoothly to anchor download without error popups
     }
   }
 
