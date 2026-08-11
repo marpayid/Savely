@@ -175,27 +175,37 @@ async function triggerVideoDownloadOrShare(
 ): Promise<void> {
   const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent || '' : '';
   const isMobile = /iPhone|iPad|iPod|Android/i.test(userAgent);
-  const isVideo = mimeType.startsWith('video/') || filename.toLowerCase().endsWith('.mp4');
+  const isVideo = mimeType.startsWith('video/') || filename.toLowerCase().endsWith('.mp4') || filename.toLowerCase().endsWith('.webm');
 
-  // Force video/mp4 blob type for media files
+  // Force video/mp4 blob type for media files so OS media scanners recognize it as MP4 video
+  const videoMime = isVideo ? 'video/mp4' : (mimeType || 'application/octet-stream');
   const videoBlob = isVideo && blob.type !== 'video/mp4'
     ? new Blob([blob], { type: 'video/mp4' })
     : blob;
 
+  // Clean ASCII filename for Web Share API compatibility on iOS/Android
+  const safeAsciiName = filename
+    .replace(/[^\x20-\x7E]/g, '_')
+    .replace(/[/\\?%*:|"<>]/g, '_')
+    .trim() || 'video.mp4';
+  const shareFilename = isVideo && !safeAsciiName.toLowerCase().endsWith('.mp4')
+    ? `${safeAsciiName}.mp4`
+    : safeAsciiName;
+
   // 1. Web Share API on Mobile (iOS Safari & Android Chrome) for native "Save Video" to Photos / Gallery
   if (isMobile && typeof navigator !== 'undefined' && 'canShare' in navigator) {
     try {
-      const file = new File([videoBlob], filename, { type: 'video/mp4' });
+      const file = new File([videoBlob], shareFilename, { type: videoMime });
       if (navigator.canShare({ files: [file] })) {
         await navigator.share({
           files: [file],
-          title: filename,
+          title: shareFilename,
         });
-        return; // Native share modal opened (User can tap "Save Video" to Photos/Gallery)
+        return; // Native share sheet opened (User can select "Save Video" on iOS Photos or Android Gallery)
       }
     } catch (shareErr: unknown) {
       if (shareErr instanceof Error && shareErr.name === 'AbortError') {
-        // User explicitly canceled the share sheet, do not fallback to double download
+        // User explicitly dismissed the share sheet, do not trigger secondary download
         return;
       }
     }
@@ -208,8 +218,8 @@ async function triggerVideoDownloadOrShare(
     const a = document.createElement('a');
     a.style.display = 'none';
     a.href = blobUrl;
-    a.download = filename;
-    a.setAttribute('type', 'video/mp4');
+    a.download = shareFilename;
+    a.setAttribute('type', videoMime);
     a.setAttribute('target', '_blank');
     a.setAttribute('rel', 'noopener noreferrer');
     document.body.appendChild(a);
