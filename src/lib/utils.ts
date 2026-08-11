@@ -75,28 +75,80 @@ export async function downloadFileViaBlob(
   filename: string,
   onProgress?: (msg: string) => void
 ): Promise<void> {
-  const proxyUrl = `/api/download?url=${encodeURIComponent(targetUrl)}&filename=${encodeURIComponent(filename)}`;
+  if (!targetUrl || typeof targetUrl !== 'string') {
+    throw new Error('URL berkas tidak valid.');
+  }
+
+  const cleanUrl = targetUrl.trim().replace(/[\u200B-\u200D\uFEFF]/g, '');
+  if (!cleanUrl) {
+    throw new Error('URL berkas tidak boleh kosong.');
+  }
+
+  const safeFilename = (filename || 'download-file.mp4')
+    .replace(/[\r\n\t]/g, ' ')
+    .replace(/[/\\?%*:|"<>]/g, '_')
+    .trim() || 'download-file.mp4';
+
+  const proxyUrl = `/api/download?url=${encodeURIComponent(cleanUrl)}&filename=${encodeURIComponent(safeFilename)}`;
   if (onProgress) onProgress('Mengunduh data berkas dari server...');
 
-  const res = await fetch(proxyUrl);
+  let res: Response;
+  try {
+    res = await fetch(proxyUrl);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Gagal terhubung ke server.';
+    throw new Error(`Gagal menghubungi server download: ${msg}`);
+  }
+
   if (!res.ok) {
     const errTxt = await res.text().catch(() => '');
-    throw new Error(errTxt || 'Gagal mengunduh file dari server.');
+    throw new Error(errTxt || `Gagal mengunduh file dari server (HTTP ${res.status}).`);
+  }
+
+  const contentType = res.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    const json = await res.json().catch(() => null);
+    if (json && json.error) {
+      throw new Error(json.error);
+    }
+  }
+
+  if (contentType.includes('text/html')) {
+    throw new Error('Server mengembalikan halaman web, bukan file media.');
   }
 
   const blob = await res.blob();
-  const blobUrl = window.URL.createObjectURL(blob);
+  if (!blob || blob.size === 0) {
+    throw new Error('Berkas yang diterima kosong (0 byte).');
+  }
 
-  const a = document.createElement('a');
-  a.style.display = 'none';
-  a.href = blobUrl;
-  a.download = filename || 'download-file.mp4';
-  document.body.appendChild(a);
-  a.click();
+  let blobUrl: string;
+  try {
+    blobUrl = window.URL.createObjectURL(blob);
+  } catch {
+    throw new Error('Browser gagal membuat objek berkas.');
+  }
 
-  setTimeout(() => {
+  try {
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = blobUrl;
+    a.download = safeFilename;
+    document.body.appendChild(a);
+    a.click();
+
+    setTimeout(() => {
+      try {
+        window.URL.revokeObjectURL(blobUrl);
+        a.remove();
+      } catch {
+        // ignore
+      }
+    }, 2000);
+  } catch (err) {
     window.URL.revokeObjectURL(blobUrl);
-    a.remove();
-  }, 2000);
+    const msg = err instanceof Error ? err.message : 'Gagal menyimpan file.';
+    throw new Error(`Browser tidak dapat menyimpan file: ${msg}`);
+  }
 }
 

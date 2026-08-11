@@ -86,7 +86,7 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
 
   // Main Inspect & Download Trigger
   const handleStartDownload = async (overrideUrl?: string) => {
-    const targetUrl = (overrideUrl || urlInput).trim();
+    let targetUrl = (overrideUrl || urlInput).trim().replace(/[\u200B-\u200D\uFEFF]/g, '');
 
     if (!targetUrl) {
       setErrorMessage('Silakan masukkan URL media terlebih dahulu.');
@@ -94,8 +94,13 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
       return;
     }
 
-    if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
-      setErrorMessage('URL tidak valid. URL harus dimulai dengan http:// atau https://');
+    try {
+      const parsed = new URL(targetUrl);
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        throw new Error('Protokol URL tidak valid.');
+      }
+    } catch {
+      setErrorMessage('URL tidak valid. Format harus berupa http:// atau https://');
       setStatus('error');
       return;
     }
@@ -108,10 +113,20 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
 
     try {
       const inspectRes = await fetch(`/api/inspect?url=${encodeURIComponent(targetUrl)}`);
+      if (!inspectRes.ok) {
+        const errText = await inspectRes.text().catch(() => '');
+        throw new Error(errText || `Server mengembalikan error (HTTP ${inspectRes.status}).`);
+      }
+
+      const contentType = inspectRes.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        throw new Error('Respon dari server tidak valid.');
+      }
+
       const data = await inspectRes.json();
 
-      if (!data.ok) {
-        const errorText = data.error || 'URL ini tidak menyediakan file yang dapat diunduh secara langsung.';
+      if (!data || !data.ok) {
+        const errorText = (data && data.error) ? data.error : 'URL ini tidak menyediakan file yang dapat diunduh secara langsung.';
         setErrorMessage(errorText);
         setStatus('error');
 
@@ -131,12 +146,12 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
 
       // Metadata received successfully
       const meta: FileMetadata = {
-        filename: data.filename,
-        fileSize: data.fileSize,
-        contentType: data.contentType,
-        extension: data.extension,
-        category: data.category,
-        url: data.url,
+        filename: data.filename || 'download-file.mp4',
+        fileSize: data.fileSize || 0,
+        contentType: data.contentType || 'application/octet-stream',
+        extension: data.extension || 'MP4',
+        category: data.category || 'Video',
+        url: data.url || targetUrl,
       };
 
       setFileMetadata(meta);
@@ -144,8 +159,14 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
       setStatusMessage('Mengunduh data berkas...');
 
       // Initiate file download via Blob to force browser file save
-      const downloadTargetUrl = data.downloadUrl || targetUrl;
-      await downloadFileViaBlob(downloadTargetUrl, data.filename, (msg) => setStatusMessage(msg));
+      const downloadTargetUrl = (data.downloadUrl && typeof data.downloadUrl === 'string' && data.downloadUrl.trim())
+        ? data.downloadUrl.trim()
+        : targetUrl;
+      const downloadFilename = (data.filename && typeof data.filename === 'string' && data.filename.trim())
+        ? data.filename.trim()
+        : 'download-file.mp4';
+
+      await downloadFileViaBlob(downloadTargetUrl, downloadFilename, (msg) => setStatusMessage(msg));
 
       // Finish state
       setStatus('success');
@@ -154,12 +175,12 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
 
       // Save to localStorage history
       const updatedHistory = addHistoryEntry({
-        filename: data.filename,
+        filename: downloadFilename,
         url: targetUrl,
         status: 'Sukses',
-        fileSize: data.fileSize,
-        extension: data.extension,
-        category: data.category,
+        fileSize: meta.fileSize,
+        extension: meta.extension,
+        category: meta.category,
       });
       onHistoryUpdated(updatedHistory);
     } catch (err: unknown) {

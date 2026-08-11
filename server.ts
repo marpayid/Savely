@@ -41,28 +41,46 @@ const MIME_MAP: Record<string, { ext: string; category: string }> = {
 };
 
 function sanitizeFilename(rawName: string): string {
-  return rawName.replace(/[/\\?%*:|"<>#]/g, '_').trim() || 'download-file';
+  return rawName.replace(/[/\\?%*:|"<>#\r\n\t]/g, '_').trim() || 'download-file';
 }
 
 function isTikTokUrl(url: string): boolean {
+  if (!url || typeof url !== 'string') return false;
   try {
-    const parsed = new URL(url);
+    const parsed = new URL(url.trim());
     const host = parsed.hostname.toLowerCase();
     return (
       host.includes('tiktok.com') ||
       host.includes('douyin.com') ||
-      host.includes('tiktokv.com')
+      host.includes('tiktokv.com') ||
+      host.includes('vt.tiktok.com')
     );
   } catch {
     return false;
   }
 }
 
+function makeAbsoluteUrl(rawUrl: string, baseDomain = 'https://www.tikwm.com'): string {
+  if (!rawUrl || typeof rawUrl !== 'string') return '';
+  let cleaned = rawUrl.trim();
+  if (cleaned.startsWith('//')) {
+    return 'https:' + cleaned;
+  }
+  if (cleaned.startsWith('/')) {
+    return baseDomain + cleaned;
+  }
+  if (!cleaned.startsWith('http://') && !cleaned.startsWith('https://')) {
+    return 'https://' + cleaned;
+  }
+  return cleaned;
+}
+
 async function expandShortUrl(shortUrl: string): Promise<string> {
   try {
+    const clean = shortUrl.trim();
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 6000);
-    const res = await fetch(shortUrl, {
+    const res = await fetch(clean, {
       method: 'GET',
       redirect: 'follow',
       signal: controller.signal,
@@ -71,7 +89,7 @@ async function expandShortUrl(shortUrl: string): Promise<string> {
       },
     });
     clearTimeout(timeout);
-    return res.url || shortUrl;
+    return res.url || clean;
   } catch {
     return shortUrl;
   }
@@ -109,8 +127,7 @@ async function resolveTikTokMedia(rawUrl: string): Promise<ResolvedTikTokMedia |
       if (json && json.code === 0 && json.data) {
         let playUrl = json.data.play || json.data.wmplay || json.data.hdplay;
         if (playUrl) {
-          if (playUrl.startsWith('//')) playUrl = 'https:' + playUrl;
-          else if (playUrl.startsWith('/')) playUrl = 'https://www.tikwm.com' + playUrl;
+          playUrl = makeAbsoluteUrl(playUrl, 'https://www.tikwm.com');
 
           const rawTitle = json.data.title || 'tiktok_video';
           const titleClean = sanitizeFilename(rawTitle.substring(0, 50)) || 'tiktok_video';
@@ -148,8 +165,7 @@ async function resolveTikTokMedia(rawUrl: string): Promise<ResolvedTikTokMedia |
       if (json && json.code === 0 && json.data) {
         let playUrl = json.data.play || json.data.wmplay || json.data.hdplay;
         if (playUrl) {
-          if (playUrl.startsWith('//')) playUrl = 'https:' + playUrl;
-          else if (playUrl.startsWith('/')) playUrl = 'https://www.tikwm.com' + playUrl;
+          playUrl = makeAbsoluteUrl(playUrl, 'https://www.tikwm.com');
 
           const rawTitle = json.data.title || 'tiktok_video';
           const titleClean = sanitizeFilename(rawTitle.substring(0, 50)) || 'tiktok_video';
@@ -170,7 +186,37 @@ async function resolveTikTokMedia(rawUrl: string): Promise<ResolvedTikTokMedia |
     console.warn('TikWM GET failed:', err);
   }
 
-  // Method 3: RapidAPI if RAPIDAPI_KEY is present
+  // Method 3: Tiklydown API backup
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(`https://api.tiklydown.eu.org/api/download?url=${encodeURIComponent(expandedUrl)}`, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      },
+    });
+    clearTimeout(timeout);
+    if (res.ok) {
+      const json = await res.json();
+      let videoUrl = json.video?.noWatermark || json.video?.watermark || json.video?.mp4 || json.url;
+      if (videoUrl && typeof videoUrl === 'string') {
+        videoUrl = makeAbsoluteUrl(videoUrl, 'https://www.tiktok.com');
+        return {
+          filename: sanitizeFilename(json.title || 'tiktok_video') + '.mp4',
+          downloadUrl: videoUrl,
+          fileSize: 0,
+          contentType: 'video/mp4',
+          extension: 'MP4',
+          category: 'Video',
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('Tiklydown failed:', err);
+  }
+
+  // Method 4: RapidAPI if RAPIDAPI_KEY is present
   if (process.env.RAPIDAPI_KEY) {
     try {
       const controller = new AbortController();
@@ -186,10 +232,10 @@ async function resolveTikTokMedia(rawUrl: string): Promise<ResolvedTikTokMedia |
       if (res.ok) {
         const json = await res.json();
         const videoUrl = json.video?.[0] || json.video || json.url;
-        if (videoUrl) {
+        if (videoUrl && typeof videoUrl === 'string') {
           return {
             filename: 'tiktok_video.mp4',
-            downloadUrl: videoUrl,
+            downloadUrl: makeAbsoluteUrl(videoUrl),
             fileSize: 0,
             contentType: 'video/mp4',
             extension: 'MP4',
@@ -202,7 +248,7 @@ async function resolveTikTokMedia(rawUrl: string): Promise<ResolvedTikTokMedia |
     }
   }
 
-  // Method 4: HTML Scrape fallback for direct embedded JSON
+  // Method 5: HTML Scrape fallback for direct embedded JSON
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
@@ -218,8 +264,9 @@ async function resolveTikTokMedia(rawUrl: string): Promise<ResolvedTikTokMedia |
       const htmlText = await htmlRes.text();
       const playMatch = htmlText.match(/"playAddr":"([^"]+)"/) || htmlText.match(/"downloadAddr":"([^"]+)"/);
       if (playMatch && playMatch[1]) {
-        const directUrl = playMatch[1].replace(/\\u0026/g, '&').replace(/\\/g, '');
+        let directUrl = playMatch[1].replace(/\\u0026/g, '&').replace(/\\/g, '');
         if (directUrl) {
+          directUrl = makeAbsoluteUrl(directUrl, 'https://www.tiktok.com');
           return {
             filename: 'tiktok_video.mp4',
             downloadUrl: directUrl,
@@ -438,18 +485,27 @@ app.get('/api/inspect', async (req, res) => {
 
 // API: Proxy Stream Download
 app.get('/api/download', async (req, res) => {
-  let targetUrl = req.query.url as string;
-  let customFilename = req.query.filename as string;
+  let targetUrl = (req.query.url as string || '').trim();
+  let customFilename = (req.query.filename as string || '').trim();
 
   if (!targetUrl) {
-    return res.status(400).send('URL required');
+    return res.status(400).send('URL berkas tidak boleh kosong.');
+  }
+
+  try {
+    const parsed = new URL(targetUrl);
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return res.status(400).send('Format URL tidak valid.');
+    }
+  } catch {
+    return res.status(400).send('Format URL tidak valid.');
   }
 
   // If URL is TikTok, resolve direct video stream URL if not already resolved
   if (isTikTokUrl(targetUrl)) {
     try {
       const tikTokMedia = await resolveTikTokMedia(targetUrl);
-      if (tikTokMedia) {
+      if (tikTokMedia && tikTokMedia.downloadUrl) {
         targetUrl = tikTokMedia.downloadUrl;
         if (!customFilename) {
           customFilename = tikTokMedia.filename;
@@ -460,6 +516,13 @@ app.get('/api/download', async (req, res) => {
     } catch {
       return res.status(500).send('Gagal memproses URL TikTok.');
     }
+  }
+
+  // Double-check targetUrl format
+  try {
+    new URL(targetUrl);
+  } catch {
+    return res.status(400).send('URL target unduhan tidak valid.');
   }
 
   try {
@@ -489,12 +552,14 @@ app.get('/api/download', async (req, res) => {
     }
 
     const metadata = parseFileMetadata(targetUrl, response.headers);
-    const downloadName = sanitizeFilename(customFilename || metadata.filename);
+    const rawDownloadName = customFilename || metadata.filename;
+    const asciiFilename = rawDownloadName.replace(/[^\x20-\x7E]/g, '_').replace(/["\r\n]/g, '');
+    const downloadName = sanitizeFilename(asciiFilename || 'download-file.mp4');
 
     res.setHeader('Content-Type', contentType);
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename="${encodeURIComponent(downloadName)}"; filename*=UTF-8''${encodeURIComponent(downloadName)}`
+      `attachment; filename="${downloadName}"; filename*=UTF-8''${encodeURIComponent(rawDownloadName)}`
     );
 
     const contentLength = response.headers.get('content-length');
@@ -533,7 +598,7 @@ async function main() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(__dirname, 'dist');
+    const distPath = path.basename(__dirname) === 'dist' ? __dirname : path.join(__dirname, 'dist');
     app.use(express.static(distPath));
     app.get('*', (_req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
