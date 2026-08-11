@@ -70,6 +70,17 @@ export function clearAllHistory(): HistoryItem[] {
   return [];
 }
 
+export function getApiBaseUrl(): string {
+  const metaEnv = (import.meta as unknown as { env?: Record<string, string> }).env || {};
+  const envUrl = (
+    metaEnv.VITE_API_BASE_URL ||
+    metaEnv.VITE_API_URL ||
+    metaEnv.VITE_BACKEND_URL ||
+    ''
+  ).trim();
+  return envUrl ? envUrl.replace(/\/+$/, '') : '';
+}
+
 export async function downloadFileViaBlob(
   targetUrl: string,
   filename: string,
@@ -89,7 +100,8 @@ export async function downloadFileViaBlob(
     .replace(/[/\\?%*:|"<>]/g, '_')
     .trim() || 'download-file.mp4';
 
-  const proxyUrl = `/api/download?url=${encodeURIComponent(cleanUrl)}&filename=${encodeURIComponent(safeFilename)}`;
+  const apiBase = getApiBaseUrl();
+  const proxyUrl = `${apiBase}/api/download?url=${encodeURIComponent(cleanUrl)}&filename=${encodeURIComponent(safeFilename)}`;
   if (onProgress) onProgress('Mengunduh data berkas dari server...');
 
   let res: Response;
@@ -100,12 +112,16 @@ export async function downloadFileViaBlob(
     throw new Error(`Gagal menghubungi server download: ${msg}`);
   }
 
+  const contentType = res.headers.get('content-type') || '';
+  if (contentType.toLowerCase().includes('text/html')) {
+    throw new Error('Endpoint server mengembalikan halaman HTML (404/Page Not Found). Pastikan Netlify Functions ter-deploy atau VITE_API_BASE_URL diatur di environment variable.');
+  }
+
   if (!res.ok) {
     const errTxt = await res.text().catch(() => '');
     throw new Error(errTxt || `Gagal mengunduh file dari server (HTTP ${res.status}).`);
   }
 
-  const contentType = res.headers.get('content-type') || '';
   if (contentType.includes('application/json')) {
     const json = await res.json().catch(() => null);
     if (json && json.error) {
@@ -113,11 +129,8 @@ export async function downloadFileViaBlob(
     }
   }
 
-  if (contentType.includes('text/html')) {
-    throw new Error('Server mengembalikan halaman web, bukan file media.');
-  }
-
   const blob = await res.blob();
+
   if (!blob || blob.size === 0) {
     throw new Error('Berkas yang diterima kosong (0 byte).');
   }

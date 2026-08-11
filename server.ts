@@ -11,6 +11,19 @@ const PORT = 3000;
 
 app.use(express.json());
 
+// Normalize URL paths for Netlify Functions / redirects
+app.use((req, _res, next) => {
+  if (req.url.startsWith('/.netlify/functions/api')) {
+    req.url = req.url.replace('/.netlify/functions/api', '/api');
+  } else if (
+    !req.url.startsWith('/api') &&
+    (req.url.startsWith('/inspect') || req.url.startsWith('/download') || req.url.startsWith('/health'))
+  ) {
+    req.url = '/api' + req.url;
+  }
+  next();
+});
+
 // Common MIME types to Extension and Category mapping
 const MIME_MAP: Record<string, { ext: string; category: string }> = {
   'video/mp4': { ext: 'mp4', category: 'Video' },
@@ -590,24 +603,28 @@ app.get('/api/download', async (req, res) => {
   }
 });
 
+export { app };
+
 async function main() {
-  if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.basename(__dirname) === 'dist' ? __dirname : path.join(__dirname, 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (_req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+  if (!process.env.NETLIFY && !process.env.LAMBDA_TASK_ROOT && !process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    if (process.env.NODE_ENV !== 'production') {
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      });
+      app.use(vite.middlewares);
+    } else {
+      const distPath = path.basename(__dirname) === 'dist' ? __dirname : path.join(__dirname, 'dist');
+      app.use(express.static(distPath));
+      app.get('*', (_req, res) => {
+        res.sendFile(path.join(distPath, 'index.html'));
+      });
+    }
+
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server running on http://0.0.0.0:${PORT}`);
     });
   }
-
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://0.0.0.0:${PORT}`);
-  });
 }
 
 main().catch(console.error);

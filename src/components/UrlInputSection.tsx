@@ -16,7 +16,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { FileMetadata, DownloadStatus, HistoryItem } from '../types';
-import { formatBytes, addHistoryEntry, downloadFileViaBlob } from '../lib/utils';
+import { formatBytes, addHistoryEntry, downloadFileViaBlob, getApiBaseUrl } from '../lib/utils';
 
 interface UrlInputSectionProps {
   onHistoryUpdated: (newHistory: HistoryItem[]) => void;
@@ -112,13 +112,19 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
     setStatusMessage('Memvalidasi dan memeriksa URL media...');
 
     try {
-      const inspectRes = await fetch(`/api/inspect?url=${encodeURIComponent(targetUrl)}`);
+      const apiBase = getApiBaseUrl();
+      const inspectRes = await fetch(`${apiBase}/api/inspect?url=${encodeURIComponent(targetUrl)}`);
+
+      const contentType = inspectRes.headers.get('content-type') || '';
+      if (contentType.toLowerCase().includes('text/html')) {
+        throw new Error('Endpoint server mengembalikan halaman HTML (404/Page Not Found). Pastikan Netlify Functions ter-deploy atau VITE_API_BASE_URL diatur di environment variable.');
+      }
+
       if (!inspectRes.ok) {
         const errText = await inspectRes.text().catch(() => '');
         throw new Error(errText || `Server mengembalikan error (HTTP ${inspectRes.status}).`);
       }
 
-      const contentType = inspectRes.headers.get('content-type') || '';
       if (!contentType.includes('application/json')) {
         throw new Error('Respon dari server tidak valid.');
       }
