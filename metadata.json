@@ -1,0 +1,6 @@
+{
+  "name": "Savely",
+  "description": "Download your media files quickly and easily with URL validation, file inspection, clipboard paste, download history, and responsive SaaS design.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
