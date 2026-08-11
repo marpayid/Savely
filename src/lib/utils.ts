@@ -100,7 +100,15 @@ export async function downloadFileViaBlob(
     .replace(/[/\\?%*:|"<>]/g, '_')
     .trim() || 'download-file.mp4';
 
+  const isVideo = safeFilename.toLowerCase().endsWith('.mp4') ||
+    safeFilename.toLowerCase().endsWith('.webm') ||
+    safeFilename.toLowerCase().endsWith('.mov') ||
+    safeFilename.toLowerCase().endsWith('.m4v');
+  const targetMimeType = isVideo ? 'video/mp4' : 'application/octet-stream';
+
   if (onProgress) onProgress('Mengunduh berkas media...');
+
+  let blob: Blob | null = null;
 
   // Attempt 1: Direct browser fetch to direct media URL if HTTP/HTTPS
   if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
@@ -109,94 +117,119 @@ export async function downloadFileViaBlob(
       const contentType = directRes.headers.get('content-type') || '';
 
       if (directRes.ok && !contentType.toLowerCase().includes('text/html')) {
-        const blob = await directRes.blob();
-        if (blob && blob.size > 0) {
-          const blobUrl = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.style.display = 'none';
-          a.href = blobUrl;
-          a.download = safeFilename;
-          document.body.appendChild(a);
-          a.click();
-
-          setTimeout(() => {
-            try {
-              window.URL.revokeObjectURL(blobUrl);
-              a.remove();
-            } catch {
-              // ignore
-            }
-          }, 2000);
-          return;
+        const rawBlob = await directRes.blob();
+        if (rawBlob && rawBlob.size > 0) {
+          blob = new Blob([rawBlob], { type: isVideo ? 'video/mp4' : (rawBlob.type || targetMimeType) });
         }
       }
     } catch {
-      // If direct fetch fails (e.g. CORS), fallback to proxy/redirect endpoint
+      // Direct fetch failed (e.g. CORS), fallback to proxy/redirect
     }
   }
 
-  // Attempt 2: Via /api/download (which returns 302 redirect or media stream)
-  const apiBase = getApiBaseUrl();
-  const proxyUrl = `${apiBase}/api/download?url=${encodeURIComponent(cleanUrl)}&filename=${encodeURIComponent(safeFilename)}`;
+  // Attempt 2: Via /api/download redirect
+  if (!blob) {
+    const apiBase = getApiBaseUrl();
+    const proxyUrl = `${apiBase}/api/download?url=${encodeURIComponent(cleanUrl)}&filename=${encodeURIComponent(safeFilename)}`;
 
-  let res: Response;
-  try {
-    res = await fetch(proxyUrl);
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Gagal terhubung ke server.';
-    throw new Error(`Gagal menghubungi server download: ${msg}`);
+    let res: Response;
+    try {
+      res = await fetch(proxyUrl);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Gagal terhubung ke server.';
+      throw new Error(`Gagal menghubungi server download: ${msg}`);
+    }
+
+    const contentType = res.headers.get('content-type') || '';
+    if (contentType.toLowerCase().includes('text/html')) {
+      throw new Error('Endpoint server mengembalikan halaman HTML (404/Page Not Found). Pastikan Netlify Functions ter-deploy atau VITE_API_BASE_URL diatur di environment variable.');
+    }
+
+    if (!res.ok) {
+      const errTxt = await res.text().catch(() => '');
+      throw new Error(errTxt || `Gagal mengunduh file dari server (HTTP ${res.status}).`);
+    }
+
+    if (contentType.includes('application/json')) {
+      const json = await res.json().catch(() => null);
+      if (json && json.error) {
+        throw new Error(json.error);
+      }
+    }
+
+    const rawBlob = await res.blob();
+    if (!rawBlob || rawBlob.size === 0) {
+      throw new Error('Berkas yang diterima kosong (0 byte).');
+    }
+    blob = new Blob([rawBlob], { type: isVideo ? 'video/mp4' : (rawBlob.type || targetMimeType) });
   }
 
-  const contentType = res.headers.get('content-type') || '';
-  if (contentType.toLowerCase().includes('text/html')) {
-    throw new Error('Endpoint server mengembalikan halaman HTML (404/Page Not Found). Pastikan Netlify Functions ter-deploy atau VITE_API_BASE_URL diatur di environment variable.');
-  }
+  await triggerVideoDownloadOrShare(blob, safeFilename, targetMimeType, cleanUrl);
+}
 
-  if (!res.ok) {
-    const errTxt = await res.text().catch(() => '');
-    throw new Error(errTxt || `Gagal mengunduh file dari server (HTTP ${res.status}).`);
-  }
+async function triggerVideoDownloadOrShare(
+  blob: Blob,
+  filename: string,
+  mimeType: string,
+  originalUrl: string
+): Promise<void> {
+  const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent || '' : '';
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(userAgent);
+  const isVideo = mimeType.startsWith('video/') || filename.toLowerCase().endsWith('.mp4');
 
-  if (contentType.includes('application/json')) {
-    const json = await res.json().catch(() => null);
-    if (json && json.error) {
-      throw new Error(json.error);
+  // Force video/mp4 blob type for media files
+  const videoBlob = isVideo && blob.type !== 'video/mp4'
+    ? new Blob([blob], { type: 'video/mp4' })
+    : blob;
+
+  // 1. Web Share API on Mobile (iOS Safari & Android Chrome) for native "Save Video" to Photos / Gallery
+  if (isMobile && typeof navigator !== 'undefined' && 'canShare' in navigator) {
+    try {
+      const file = new File([videoBlob], filename, { type: 'video/mp4' });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: filename,
+        });
+        return; // Native share modal opened (User can tap "Save Video" to Photos/Gallery)
+      }
+    } catch (shareErr: unknown) {
+      if (shareErr instanceof Error && shareErr.name === 'AbortError') {
+        // User explicitly canceled the share sheet, do not fallback to double download
+        return;
+      }
     }
   }
 
-  const blob = await res.blob();
-
-  if (!blob || blob.size === 0) {
-    throw new Error('Berkas yang diterima kosong (0 byte).');
-  }
-
-  let blobUrl: string;
+  // 2. Standard Blob Download / Anchor Trigger with explicit video/mp4 type
+  let blobUrl: string | null = null;
   try {
-    blobUrl = window.URL.createObjectURL(blob);
-  } catch {
-    throw new Error('Browser gagal membuat objek berkas.');
-  }
-
-  try {
+    blobUrl = window.URL.createObjectURL(videoBlob);
     const a = document.createElement('a');
     a.style.display = 'none';
     a.href = blobUrl;
-    a.download = safeFilename;
+    a.download = filename;
+    a.setAttribute('type', 'video/mp4');
+    a.setAttribute('target', '_blank');
+    a.setAttribute('rel', 'noopener noreferrer');
     document.body.appendChild(a);
     a.click();
 
     setTimeout(() => {
       try {
-        window.URL.revokeObjectURL(blobUrl);
+        if (blobUrl) window.URL.revokeObjectURL(blobUrl);
         a.remove();
       } catch {
         // ignore
       }
-    }, 2000);
-  } catch (err) {
-    window.URL.revokeObjectURL(blobUrl);
-    const msg = err instanceof Error ? err.message : 'Gagal menyimpan file.';
-    throw new Error(`Browser tidak dapat menyimpan file: ${msg}`);
+    }, 4000);
+  } catch {
+    if (blobUrl) window.URL.revokeObjectURL(blobUrl);
+
+    // Fallback: direct window open if blob creation or anchor click fails
+    if (originalUrl) {
+      window.open(originalUrl, '_blank');
+    }
   }
 }
 
