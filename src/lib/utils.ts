@@ -174,7 +174,7 @@ async function triggerVideoDownloadOrShare(
   originalUrl: string
 ): Promise<void> {
   const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent || '' : '';
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(userAgent);
+  const isIOS = /iPhone|iPad|iPod/i.test(userAgent);
   const isVideo = mimeType.startsWith('video/') || filename.toLowerCase().endsWith('.mp4') || filename.toLowerCase().endsWith('.webm');
 
   // Force video/mp4 blob type for media files so OS media scanners recognize it as MP4 video
@@ -183,7 +183,7 @@ async function triggerVideoDownloadOrShare(
     ? new Blob([blob], { type: 'video/mp4' })
     : blob;
 
-  // Clean ASCII filename for Web Share API compatibility on iOS/Android
+  // Clean ASCII filename for Web Share API and download compatibility
   const safeAsciiName = filename
     .replace(/[^\x20-\x7E]/g, '_')
     .replace(/[/\\?%*:|"<>]/g, '_')
@@ -192,8 +192,8 @@ async function triggerVideoDownloadOrShare(
     ? `${safeAsciiName}.mp4`
     : safeAsciiName;
 
-  // 1. Mobile Web Share API Flow (iOS Safari & Android Chrome)
-  if (isMobile && typeof navigator !== 'undefined' && 'canShare' in navigator) {
+  // 1. iOS Safari Web Share API Flow (Opens native iOS Share Sheet with "Save Video" directly to Photos)
+  if (isIOS && typeof navigator !== 'undefined' && 'canShare' in navigator) {
     try {
       const file = new File([videoBlob], shareFilename, { type: videoMime });
       if (navigator.canShare({ files: [file] })) {
