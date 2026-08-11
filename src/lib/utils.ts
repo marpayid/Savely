@@ -192,7 +192,8 @@ async function triggerVideoDownloadOrShare(
     ? `${safeAsciiName}.mp4`
     : safeAsciiName;
 
-  // 1. Web Share API on Mobile (iOS Safari & Android Chrome) for native "Save Video" to Photos / Gallery
+  // 1. Mobile Web Share API Flow (iOS Safari & Android Chrome)
+  // MUST execute ONLY this method on mobile when supported to prevent double-downloads / double-actions!
   if (isMobile && typeof navigator !== 'undefined' && 'canShare' in navigator) {
     try {
       const file = new File([videoBlob], shareFilename, { type: videoMime });
@@ -201,17 +202,20 @@ async function triggerVideoDownloadOrShare(
           files: [file],
           title: shareFilename,
         });
-        return; // Native share sheet opened (User can select "Save Video" on iOS Photos or Android Gallery)
+        return; // Single action completed natively via OS Share Sheet ("Save Video")
       }
     } catch (shareErr: unknown) {
       if (shareErr instanceof Error && shareErr.name === 'AbortError') {
-        // User explicitly dismissed the share sheet, do not trigger secondary download
+        // User explicitly canceled/dismissed the share sheet: STOP, do not trigger secondary download
         return;
       }
+      // On mobile, if navigator.share fails or gesture expired during inspect, STOP HERE.
+      // Do NOT fall through to anchor click because that produces the unwanted duplicate download in Files/Downloads.
+      throw new Error('Izin simpan video browser terbatas. Silakan ketuk tombol "Unduh" pada kartu informasi file untuk menyimpan video.');
     }
   }
 
-  // 2. Standard Blob Download / Anchor Trigger with explicit video/mp4 type
+  // 2. Desktop / Non-Mobile Browser Download Flow (Single Action via Blob Anchor)
   let blobUrl: string | null = null;
   try {
     blobUrl = window.URL.createObjectURL(videoBlob);
