@@ -1,10 +1,19 @@
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { createServer as createViteServer } from 'vite';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+function getSafeDirname(): string {
+  try {
+    if (import.meta && import.meta.url) {
+      return path.dirname(fileURLToPath(import.meta.url));
+    }
+  } catch {
+    // ignore
+  }
+  return process.cwd();
+}
+
+const currentDir = getSafeDirname();
 
 const app = express();
 const PORT = 3000;
@@ -608,13 +617,14 @@ export { app };
 async function main() {
   if (!process.env.NETLIFY && !process.env.LAMBDA_TASK_ROOT && !process.env.AWS_LAMBDA_FUNCTION_NAME) {
     if (process.env.NODE_ENV !== 'production') {
+      const { createServer: createViteServer } = await import('vite');
       const vite = await createViteServer({
         server: { middlewareMode: true },
         appType: 'spa',
       });
       app.use(vite.middlewares);
     } else {
-      const distPath = path.basename(__dirname) === 'dist' ? __dirname : path.join(__dirname, 'dist');
+      const distPath = path.basename(currentDir) === 'dist' ? currentDir : path.join(currentDir, 'dist');
       app.use(express.static(distPath));
       app.get('*', (_req, res) => {
         res.sendFile(path.join(distPath, 'index.html'));
