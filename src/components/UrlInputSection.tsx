@@ -187,7 +187,7 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
         </p>
 
         {/* Input Card Container */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-2xl shadow-blue-950/20 backdrop-blur-xl text-left">
+        <div className="bg-slate-900/50 border border-slate-800/60 rounded-xl p-4 sm:p-6 text-left">
           <label htmlFor="url-input" className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
             URL File / Media
           </label>

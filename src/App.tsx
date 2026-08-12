@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Header } from './components/Header';
 import { UrlInputSection } from './components/UrlInputSection';
+import { DownloadCore3DAnimation } from './components/DownloadCore3DAnimation';
 import { SupportedFormats } from './components/SupportedFormats';
 import { FaqSection } from './components/FaqSection';
 import { Footer } from './components/Footer';
@@ -29,6 +30,8 @@ export default function App() {
           setUrlInput={setUrlInput}
           onToast={showToast}
         />
+
+        <DownloadCore3DAnimation />
 
         <SupportedFormats />
         <FaqSection />

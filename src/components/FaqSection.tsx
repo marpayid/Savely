@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { DownloadIllustration } from './DownloadIllustration';
 
 export const FaqSection: React.FC = () => {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
@@ -39,6 +40,9 @@ export const FaqSection: React.FC = () => {
       transition={{ duration: 0.4, ease: 'easeOut' }}
       className="max-w-2xl mx-auto px-4 sm:px-6 my-16 pt-10 border-t border-slate-800/60"
     >
+      {/* Subtle Animated Illustration */}
+      <DownloadIllustration />
+
       {/* Help header before FAQ */}
       <div className="text-center mb-10 space-y-1.5">
         <h2 className="text-lg sm:text-xl font-bold text-slate-100 tracking-tight">
