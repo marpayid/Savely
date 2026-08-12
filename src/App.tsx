@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Header } from './components/Header';
 import { UrlInputSection } from './components/UrlInputSection';
-import { SampleLinks } from './components/SampleLinks';
 import { SupportedFormats } from './components/SupportedFormats';
+import { FaqSection } from './components/FaqSection';
 import { Footer } from './components/Footer';
 import { Toast } from './components/Toast';
 
@@ -12,12 +12,6 @@ export default function App() {
 
   const showToast = (message: string, type: 'success' | 'info' | 'error' = 'info') => {
     setToast({ message, type });
-  };
-
-  const handleSelectSample = (url: string) => {
-    setUrlInput(url);
-    showToast('URL sampel dipilih. Klik Download untuk menguji.', 'info');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
@@ -36,9 +30,8 @@ export default function App() {
           onToast={showToast}
         />
 
-        <SampleLinks onSelectSample={handleSelectSample} />
-
         <SupportedFormats />
+        <FaqSection />
       </main>
 
       {/* Footer */}
