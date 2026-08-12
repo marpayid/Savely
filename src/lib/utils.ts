@@ -29,6 +29,175 @@ export function getApiBaseUrl(): string {
   return envUrl ? envUrl.replace(/\/+$/, '') : '';
 }
 
+export function isTikTokUrl(url: string): boolean {
+  if (!url || typeof url !== 'string') return false;
+  try {
+    const parsed = new URL(url.trim());
+    const host = parsed.hostname.toLowerCase();
+    return (
+      host.includes('tiktok.com') ||
+      host.includes('douyin.com') ||
+      host.includes('tiktokv.com') ||
+      host.includes('vt.tiktok.com')
+    );
+  } catch {
+    return false;
+  }
+}
+
+export async function resolveTikTokClientSide(targetUrl: string) {
+  // Method 1: TikWM API POST
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch('https://www.tikwm.com/api/', {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+      },
+      body: new URLSearchParams({ url: targetUrl, hd: '1' }).toString(),
+    });
+    clearTimeout(timeout);
+    if (res.ok) {
+      const json = await res.json();
+      if (json && json.code === 0 && json.data) {
+        let playUrl = json.data.play || json.data.wmplay || json.data.hdplay;
+        if (playUrl) {
+          if (!playUrl.startsWith('http')) {
+            playUrl = 'https://www.tikwm.com' + (playUrl.startsWith('/') ? '' : '/') + playUrl;
+          }
+          const rawTitle = json.data.title || 'tiktok_video';
+          const cleanTitle = rawTitle.replace(/[/\\?%*:|"<>#\r\n\t]/g, '_').trim().substring(0, 50) || 'tiktok_video';
+          const filename = cleanTitle.toLowerCase().endsWith('.mp4') ? cleanTitle : `${cleanTitle}.mp4`;
+          return {
+            ok: true,
+            filename,
+            fileSize: json.data.size || 0,
+            contentType: 'video/mp4',
+            extension: 'MP4',
+            category: 'Video',
+            downloadUrl: playUrl,
+            url: targetUrl,
+          };
+        }
+      }
+    }
+  } catch {
+    // Ignore TikWM error, fallback
+  }
+
+  // Method 2: Tiklydown API
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(`https://api.tiklydown.eu.org/api/download?url=${encodeURIComponent(targetUrl)}`, {
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    if (res.ok) {
+      const json = await res.json();
+      const videoUrl = json.video?.noWatermark || json.video?.watermark || json.video?.mp4 || json.url;
+      if (videoUrl && typeof videoUrl === 'string') {
+        const title = (json.title || 'tiktok_video').replace(/[/\\?%*:|"<>#\r\n\t]/g, '_').trim().substring(0, 50) || 'tiktok_video';
+        return {
+          ok: true,
+          filename: title.toLowerCase().endsWith('.mp4') ? title : `${title}.mp4`,
+          fileSize: 0,
+          contentType: 'video/mp4',
+          extension: 'MP4',
+          category: 'Video',
+          downloadUrl: videoUrl,
+          url: targetUrl,
+        };
+      }
+    }
+  } catch {
+    // Ignore
+  }
+
+  return null;
+}
+
+export async function resolveMediaClientSide(targetUrl: string) {
+  if (isTikTokUrl(targetUrl)) {
+    const tikTokRes = await resolveTikTokClientSide(targetUrl);
+    if (tikTokRes) return tikTokRes;
+  }
+
+  let filename = 'download-file.mp4';
+  let category = 'Video';
+  let ext = 'MP4';
+  let contentType = 'video/mp4';
+
+  try {
+    const parsed = new URL(targetUrl);
+    const pathname = parsed.pathname;
+    const lastSegment = pathname.split('/').filter(Boolean).pop();
+    if (lastSegment && lastSegment.includes('.')) {
+      const cleanSeg = decodeURIComponent(lastSegment).replace(/[/\\?%*:|"<>#\r\n\t]/g, '_').trim();
+      if (cleanSeg) {
+        filename = cleanSeg;
+        const extension = filename.split('.').pop()?.toLowerCase() || '';
+        if (extension) {
+          ext = extension.toUpperCase();
+          if (['mp4', 'webm', 'mov', 'mkv', 'avi'].includes(extension)) {
+            category = 'Video';
+            contentType = `video/${extension === 'mov' ? 'quicktime' : extension}`;
+          } else if (['mp3', 'wav', 'aac', 'flac', 'ogg', 'm4a'].includes(extension)) {
+            category = 'Audio';
+            contentType = `audio/${extension === 'mp3' ? 'mpeg' : extension}`;
+          } else if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(extension)) {
+            category = 'Gambar';
+            contentType = `image/${extension === 'jpg' ? 'jpeg' : extension}`;
+          } else if (['pdf', 'doc', 'docx', 'txt', 'csv'].includes(extension)) {
+            category = 'Dokumen';
+            contentType = extension === 'pdf' ? 'application/pdf' : 'text/plain';
+          } else if (['zip', 'rar', '7z'].includes(extension)) {
+            category = 'Arsip';
+            contentType = 'application/zip';
+          }
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  return {
+    ok: true,
+    filename,
+    fileSize: 0,
+    contentType,
+    extension: ext,
+    category,
+    downloadUrl: targetUrl,
+    url: targetUrl,
+  };
+}
+
+export function triggerDirectAnchorDownload(url: string, filename: string): void {
+  try {
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = filename || 'download-file.mp4';
+    a.setAttribute('target', '_blank');
+    a.setAttribute('rel', 'noopener noreferrer');
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      try {
+        a.remove();
+      } catch {
+        // ignore
+      }
+    }, 2000);
+  } catch {
+    window.open(url, '_blank');
+  }
+}
+
 export async function downloadFileViaBlob(
   targetUrl: string,
   filename: string,
@@ -58,7 +227,7 @@ export async function downloadFileViaBlob(
 
   let blob: Blob | null = null;
 
-  // Attempt 1: Direct browser fetch to direct media URL if HTTP/HTTPS
+  // Attempt 1: Direct browser fetch
   if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
     try {
       const directRes = await fetch(cleanUrl);
@@ -71,45 +240,36 @@ export async function downloadFileViaBlob(
         }
       }
     } catch {
-      // Direct fetch failed (e.g. CORS), fallback to proxy/redirect
+      // Direct fetch failed (e.g. CORS)
     }
   }
 
-  // Attempt 2: Via /api/download redirect
+  // Attempt 2: Via /api/download redirect if available
   if (!blob) {
-    const apiBase = getApiBaseUrl();
-    const proxyUrl = `${apiBase}/api/download?url=${encodeURIComponent(cleanUrl)}&filename=${encodeURIComponent(safeFilename)}`;
-
-    let res: Response;
     try {
-      res = await fetch(proxyUrl);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Gagal terhubung ke server.';
-      throw new Error(`Gagal menghubungi server download: ${msg}`);
-    }
+      const apiBase = getApiBaseUrl();
+      const proxyUrl = `${apiBase}/api/download?url=${encodeURIComponent(cleanUrl)}&filename=${encodeURIComponent(safeFilename)}`;
 
-    const contentType = res.headers.get('content-type') || '';
-    if (contentType.toLowerCase().includes('text/html')) {
-      throw new Error('Endpoint server mengembalikan halaman HTML (404/Page Not Found). Pastikan Netlify Functions ter-deploy atau VITE_API_BASE_URL diatur di environment variable.');
-    }
+      const res = await fetch(proxyUrl);
+      const contentType = res.headers.get('content-type') || '';
 
-    if (!res.ok) {
-      const errTxt = await res.text().catch(() => '');
-      throw new Error(errTxt || `Gagal mengunduh file dari server (HTTP ${res.status}).`);
-    }
-
-    if (contentType.includes('application/json')) {
-      const json = await res.json().catch(() => null);
-      if (json && json.error) {
-        throw new Error(json.error);
+      if (res.ok && !contentType.toLowerCase().includes('text/html')) {
+        if (!contentType.includes('application/json')) {
+          const rawBlob = await res.blob();
+          if (rawBlob && rawBlob.size > 0) {
+            blob = new Blob([rawBlob], { type: isVideo ? 'video/mp4' : (rawBlob.type || targetMimeType) });
+          }
+        }
       }
+    } catch {
+      // Proxy fetch failed
     }
+  }
 
-    const rawBlob = await res.blob();
-    if (!rawBlob || rawBlob.size === 0) {
-      throw new Error('Berkas yang diterima kosong (0 byte).');
-    }
-    blob = new Blob([rawBlob], { type: isVideo ? 'video/mp4' : (rawBlob.type || targetMimeType) });
+  // Attempt 3: Direct anchor download fallback if blob fetch is blocked or API unavailable
+  if (!blob) {
+    triggerDirectAnchorDownload(cleanUrl, safeFilename);
+    return;
   }
 
   await triggerVideoDownloadOrShare(blob, safeFilename, targetMimeType, cleanUrl);

@@ -15,7 +15,7 @@ import {
   File,
 } from 'lucide-react';
 import { FileMetadata, DownloadStatus } from '../types';
-import { formatBytes, downloadFileViaBlob, getApiBaseUrl } from '../lib/utils';
+import { formatBytes, downloadFileViaBlob, getApiBaseUrl, resolveMediaClientSide } from '../lib/utils';
 
 interface UrlInputSectionProps {
   onToast: (msg: string, type?: 'success' | 'info' | 'error') => void;
@@ -109,27 +109,27 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
     setStatusMessage('Memvalidasi dan memeriksa URL media...');
 
     try {
-      const apiBase = getApiBaseUrl();
-      const inspectRes = await fetch(`${apiBase}/api/inspect?url=${encodeURIComponent(targetUrl)}`);
+      let data: Record<string, unknown> | null = null;
 
-      const contentType = inspectRes.headers.get('content-type') || '';
-      if (contentType.toLowerCase().includes('text/html')) {
-        throw new Error('Endpoint server mengembalikan halaman HTML (404/Page Not Found). Pastikan Netlify Functions ter-deploy atau VITE_API_BASE_URL diatur di environment variable.');
+      try {
+        const apiBase = getApiBaseUrl();
+        const inspectRes = await fetch(`${apiBase}/api/inspect?url=${encodeURIComponent(targetUrl)}`);
+
+        const contentType = inspectRes.headers.get('content-type') || '';
+        if (inspectRes.ok && !contentType.toLowerCase().includes('text/html') && contentType.includes('application/json')) {
+          data = await inspectRes.json().catch(() => null);
+        }
+      } catch {
+        // Ignore API inspect errors and proceed to client-side resolution fallback
       }
 
-      if (!inspectRes.ok) {
-        const errText = await inspectRes.text().catch(() => '');
-        throw new Error(errText || `Server mengembalikan error (HTTP ${inspectRes.status}).`);
+      // If API inspect didn't return valid data, resolve client-side
+      if (!data || !data.ok || !data.downloadUrl) {
+        data = await resolveMediaClientSide(targetUrl);
       }
-
-      if (!contentType.includes('application/json')) {
-        throw new Error('Respon dari server tidak valid.');
-      }
-
-      const data = await inspectRes.json();
 
       if (!data || !data.ok) {
-        const errorText = (data && data.error) ? data.error : 'URL ini tidak menyediakan file yang dapat diunduh secara langsung.';
+        const errorText = (data && typeof data.error === 'string') ? data.error : 'URL ini tidak menyediakan file yang dapat diunduh secara langsung.';
         setErrorMessage(errorText);
         setStatus('error');
         return;
@@ -137,23 +137,23 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
 
       // Metadata received successfully
       const meta: FileMetadata = {
-        filename: data.filename || 'download-file.mp4',
-        fileSize: data.fileSize || 0,
-        contentType: data.contentType || 'application/octet-stream',
-        extension: data.extension || 'MP4',
-        category: data.category || 'Video',
-        url: data.url || targetUrl,
+        filename: (typeof data.filename === 'string' && data.filename) || 'download-file.mp4',
+        fileSize: (typeof data.fileSize === 'number' && data.fileSize) || 0,
+        contentType: (typeof data.contentType === 'string' && data.contentType) || 'application/octet-stream',
+        extension: (typeof data.extension === 'string' && data.extension) || 'MP4',
+        category: (typeof data.category === 'string' && data.category) || 'Video',
+        url: (typeof data.url === 'string' && data.url) || targetUrl,
       };
 
       setFileMetadata(meta);
       setStatus('downloading');
       setStatusMessage('Mengunduh data berkas...');
 
-      // Initiate file download via Blob to force browser file save
-      const downloadTargetUrl = (data.downloadUrl && typeof data.downloadUrl === 'string' && data.downloadUrl.trim())
+      // Initiate file download
+      const downloadTargetUrl = (typeof data.downloadUrl === 'string' && data.downloadUrl.trim())
         ? data.downloadUrl.trim()
         : targetUrl;
-      const downloadFilename = (data.filename && typeof data.filename === 'string' && data.filename.trim())
+      const downloadFilename = (typeof data.filename === 'string' && data.filename.trim())
         ? data.filename.trim()
         : 'download-file.mp4';
 
@@ -164,7 +164,7 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
       setStatusMessage('Download berhasil');
       onToast('Download berhasil!', 'success');
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Terjadi kesalahan tidak terduga saat menghubungi server.';
+      const msg = err instanceof Error ? err.message : 'Terjadi kesalahan tidak terduga saat memproses unduhan.';
       setErrorMessage(msg);
       setStatus('error');
     }
