@@ -7,6 +7,10 @@ export const FaqSection: React.FC = () => {
 
   const faqs = [
     {
+      question: 'Apakah Savely bisa download video TikTok HD tanpa watermark?',
+      answer: 'Ya. Savely dapat mengunduh video TikTok kualitas HD tanpa watermark secara gratis dalam format MP4 langsung melalui browser.',
+    },
+    {
       question: 'Apakah Savely perlu aplikasi?',
       answer: 'Tidak. Savely dapat digunakan langsung melalui browser tanpa perlu memasang aplikasi tambahan.',
     },
@@ -98,6 +102,16 @@ export const FaqSection: React.FC = () => {
             </div>
           );
         })}
+      </div>
+
+      {/* Natural SEO Information Section */}
+      <div className="mt-12 text-center text-xs text-slate-500 max-w-xl mx-auto leading-relaxed border-t border-slate-800/40 pt-8">
+        <h2 className="text-xs font-semibold text-slate-400 mb-1">
+          Download Video TikTok HD Tanpa Watermark Gratis – Savely
+        </h2>
+        <p>
+          Savely adalah pengunduh media online yang memudahkan Anda untuk unduh video TikTok HD tanpa watermark secara gratis dalam format MP4 secara cepat dan mudah.
+        </p>
       </div>
     </motion.section>
   );

@@ -56,15 +56,17 @@ app.use((req, _res, next) => {
 });
 
 // Explicit SEO routes for robots.txt & sitemap.xml
-app.get('/robots.txt', (_req, res) => {
-  res.setHeader('Content-Type', 'text/plain');
+app.get(['/robots.txt', '/api/robots.txt'], (_req, res) => {
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
   res.send(`User-agent: *\nAllow: /\n\nSitemap: https://savely.web.id/sitemap.xml\n`);
 });
 
-app.get('/sitemap.xml', (_req, res) => {
-  res.setHeader('Content-Type', 'application/xml');
+app.get(['/sitemap.xml', '/api/sitemap.xml'], (_req, res) => {
+  res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
   res.send(`<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemap.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://savely.web.id/</loc>
     <lastmod>2026-08-12</lastmod>

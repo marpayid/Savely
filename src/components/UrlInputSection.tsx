@@ -182,10 +182,10 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
       <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center">
         {/* Main Title & Subtitle */}
         <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white mb-3">
-          Download Video TikTok HD Tanpa Watermark Gratis
+          Savely Downloader
         </h1>
         <p className="text-base sm:text-lg text-slate-300 font-normal max-w-xl mx-auto mb-8">
-          Unduh video TikTok HD tanpa watermark secara gratis dalam format MP4 cepat dan mudah dengan Savely.
+          Download your media files quickly and easily.
         </p>
 
         {/* Input Card Container */}
