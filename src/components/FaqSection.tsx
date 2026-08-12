@@ -33,9 +33,19 @@ export const FaqSection: React.FC = () => {
 
   return (
     <section className="max-w-2xl mx-auto px-4 sm:px-6 my-16 pt-10 border-t border-slate-800/60">
-      <h2 className="text-xl font-bold text-center text-slate-100 tracking-tight mb-6">
+      {/* Help header before FAQ */}
+      <div className="text-center mb-10 space-y-1.5">
+        <h2 className="text-lg sm:text-xl font-bold text-slate-100 tracking-tight">
+          Butuh bantuan?
+        </h2>
+        <p className="text-xs sm:text-sm text-slate-400 leading-relaxed max-w-md mx-auto">
+          Temukan jawaban dari pertanyaan yang sering ditanyakan tentang Savely.
+        </p>
+      </div>
+
+      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">
         FAQ
-      </h2>
+      </h3>
 
       <div className="divide-y divide-slate-800/60 border-b border-slate-800/60">
         {faqs.map((faq, index) => {
