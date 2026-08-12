@@ -316,10 +316,41 @@ export async function downloadFileViaBlob(
     }
   }
 
+  // Attempt 2.5: Public CORS proxy fallback if direct and backend proxy failed
+  if (!blob && (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://'))) {
+    const corsProxies = [
+      `https://corsproxy.io/?${encodeURIComponent(cleanUrl)}`,
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(cleanUrl)}`,
+    ];
+
+    for (const proxyEndpoint of corsProxies) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 12000);
+        const proxyRes = await fetch(proxyEndpoint, { signal: controller.signal });
+        clearTimeout(timeout);
+
+        const contentType = proxyRes.headers.get('content-type') || '';
+        if (proxyRes.ok && !contentType.toLowerCase().includes('text/html')) {
+          const rawBlob = await proxyRes.blob();
+          if (rawBlob && rawBlob.size > 0) {
+            blob = new Blob([rawBlob], { type: isVideo ? 'video/mp4' : (rawBlob.type || targetMimeType) });
+            break;
+          }
+        }
+      } catch {
+        // Try next proxy
+      }
+    }
+  }
+
   // Attempt 3: Direct anchor download fallback if blob fetch is blocked or API unavailable
   if (!blob) {
-    triggerDirectAnchorDownload(cleanUrl, safeFilename);
-    return;
+    if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
+      triggerDirectAnchorDownload(cleanUrl, safeFilename);
+      return;
+    }
+    throw new Error('Gagal mengunduh berkas video. Silakan coba lagi.');
   }
 
   await triggerVideoDownloadOrShare(blob, safeFilename, targetMimeType, cleanUrl);

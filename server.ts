@@ -15,7 +15,7 @@ function getSafeDirname(): string {
 
 const currentDir = getSafeDirname();
 
-const app = express();
+export const app = express();
 const PORT = 3000;
 
 app.use(express.json());
@@ -598,7 +598,7 @@ app.get('/api/download', async (req, res) => {
   return res.redirect(302, targetUrl);
 });
 
-export { app };
+
 
 async function main() {
   if (!process.env.NETLIFY && !process.env.VERCEL && !process.env.LAMBDA_TASK_ROOT && !process.env.AWS_LAMBDA_FUNCTION_NAME) {
