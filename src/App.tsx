@@ -6,7 +6,6 @@ import { SupportedFormats } from './components/SupportedFormats';
 import { FaqSection } from './components/FaqSection';
 import { Footer } from './components/Footer';
 import { Toast } from './components/Toast';
-import { AdUnit } from './components/AdUnit';
 
 export default function App() {
   const [urlInput, setUrlInput] = useState<string>('');
@@ -35,16 +34,6 @@ export default function App() {
         <DownloadCore3DAnimation />
 
         <SupportedFormats />
-
-        {/* Adsterra Slot 2: 160x300 Ad */}
-        <div className="my-6 flex justify-center px-4">
-          <AdUnit
-            adKey="4ec4a0f7e3dac6d0f60e36b507111dae"
-            width={160}
-            height={300}
-            label="IKLAN"
-          />
-        </div>
 
         <FaqSection />
       </main>

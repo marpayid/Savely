@@ -16,7 +16,6 @@ import {
 } from 'lucide-react';
 import { FileMetadata, DownloadStatus } from '../types';
 import { formatBytes, downloadFileViaBlob, getApiBaseUrl, resolveMediaClientSide } from '../lib/utils';
-import { AdUnit } from './AdUnit';
 
 interface UrlInputSectionProps {
   onToast: (msg: string, type?: 'success' | 'info' | 'error') => void;
@@ -356,24 +355,6 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
               </div>
             </div>
           )}
-        </div>
-
-        {/* Adsterra Slot 3: 468x60 Horizontal Banner (Near results area, outside card) */}
-        <div className="mt-4 flex justify-center px-2">
-          <AdUnit
-            adKey="6be7a8a5af92e8d48916a2cb6b62ecb4"
-            width={468}
-            height={60}
-          />
-        </div>
-
-        {/* Adsterra Slot 1: 320x50 Horizontal Banner (After main downloader) */}
-        <div className="mt-3 flex justify-center px-4">
-          <AdUnit
-            adKey="0515b78501034d3e3f7c38be5f921b00"
-            width={320}
-            height={50}
-          />
         </div>
       </div>
     </motion.section>
