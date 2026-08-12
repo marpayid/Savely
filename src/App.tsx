@@ -6,6 +6,7 @@ import { SupportedFormats } from './components/SupportedFormats';
 import { FaqSection } from './components/FaqSection';
 import { Footer } from './components/Footer';
 import { Toast } from './components/Toast';
+import { AdUnit } from './components/AdUnit';
 
 export default function App() {
   const [urlInput, setUrlInput] = useState<string>('');
@@ -16,7 +17,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-blue-500 selection:text-white antialiased">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-blue-500 selection:text-white antialiased relative">
       {/* Background radial glow */}
       <div className="fixed inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(59,130,246,0.15),rgba(255,255,255,0))] pointer-events-none" />
 
@@ -34,6 +35,17 @@ export default function App() {
         <DownloadCore3DAnimation />
 
         <SupportedFormats />
+
+        {/* Adsterra Slot 2: 160x300 Ad */}
+        <div className="my-6 flex justify-center px-4">
+          <AdUnit
+            adKey="4ec4a0f7e3dac6d0f60e36b507111dae"
+            width={160}
+            height={300}
+            label="IKLAN"
+          />
+        </div>
+
         <FaqSection />
       </main>
 

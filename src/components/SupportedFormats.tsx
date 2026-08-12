@@ -31,7 +31,7 @@ export const SupportedFormats: React.FC = () => {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-40px' }}
       transition={{ duration: 0.4, ease: 'easeOut' }}
-      className="max-w-2xl mx-auto px-4 sm:px-6 my-16 space-y-10 text-center"
+      className="max-w-2xl mx-auto px-4 sm:px-6 mt-12 mb-6 space-y-10 text-center"
     >
       {sections.map((sec) => (
         <div key={sec.title} className="space-y-2">

@@ -42,7 +42,7 @@ export const FaqSection: React.FC = () => {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-40px' }}
       transition={{ duration: 0.4, ease: 'easeOut' }}
-      className="max-w-2xl mx-auto px-4 sm:px-6 my-16 pt-10 border-t border-slate-800/60"
+      className="max-w-2xl mx-auto px-4 sm:px-6 mt-6 mb-12 pt-6 border-t border-slate-800/60"
     >
       {/* Subtle Animated Illustration */}
       <DownloadIllustration />
