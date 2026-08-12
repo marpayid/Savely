@@ -32,7 +32,13 @@ export const FaqSection: React.FC = () => {
   };
 
   return (
-    <section className="max-w-2xl mx-auto px-4 sm:px-6 my-16 pt-10 border-t border-slate-800/60">
+    <motion.section
+      initial={{ opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '-40px' }}
+      transition={{ duration: 0.4, ease: 'easeOut' }}
+      className="max-w-2xl mx-auto px-4 sm:px-6 my-16 pt-10 border-t border-slate-800/60"
+    >
       {/* Help header before FAQ */}
       <div className="text-center mb-10 space-y-1.5">
         <h2 className="text-lg sm:text-xl font-bold text-slate-100 tracking-tight">
@@ -61,9 +67,13 @@ export const FaqSection: React.FC = () => {
                 <span className="text-sm font-semibold text-slate-200 group-hover:text-white transition-colors">
                   {faq.question}
                 </span>
-                <span className="text-base font-medium text-slate-400 group-hover:text-slate-200 w-5 h-5 flex items-center justify-center select-none transition-transform duration-200">
+                <motion.span
+                  animate={{ rotate: isOpen ? 180 : 0 }}
+                  transition={{ duration: 0.2, ease: 'easeInOut' }}
+                  className="text-base font-medium text-slate-400 group-hover:text-slate-200 w-5 h-5 flex items-center justify-center select-none inline-flex"
+                >
                   {isOpen ? '−' : '+'}
-                </span>
+                </motion.span>
               </button>
 
               <AnimatePresence initial={false}>
@@ -72,7 +82,7 @@ export const FaqSection: React.FC = () => {
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.2, ease: 'easeInOut' }}
+                    transition={{ duration: 0.25, ease: 'easeInOut' }}
                     className="overflow-hidden"
                   >
                     <p className="pb-3 pt-0.5 text-xs sm:text-sm text-slate-400 leading-relaxed">
@@ -85,7 +95,7 @@ export const FaqSection: React.FC = () => {
           );
         })}
       </div>
-    </section>
+    </motion.section>
   );
 };
 

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'motion/react';
 import {
   Download,
   Clipboard,
@@ -170,7 +171,12 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
   };
 
   return (
-    <section className="w-full pt-8 pb-10">
+    <motion.section
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+      className="w-full pt-8 pb-10"
+    >
       <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center">
         {/* Main Title & Subtitle */}
         <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white mb-3">
@@ -235,11 +241,13 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
             </div>
 
             {/* Download Main Button */}
-            <button
+            <motion.button
               type="button"
               onClick={() => handleStartDownload()}
               disabled={status === 'inspecting' || status === 'downloading'}
-              className="w-full sm:w-auto px-6 py-3.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold rounded-xl shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2 transition duration-200 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed min-h-[48px]"
+              whileHover={{ y: -1.5 }}
+              whileTap={{ scale: 0.98 }}
+              className="w-full sm:w-auto px-6 py-3.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold rounded-xl shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2 transition duration-200 disabled:opacity-60 disabled:cursor-not-allowed min-h-[48px]"
             >
               {status === 'inspecting' || status === 'downloading' ? (
                 <>
@@ -252,7 +260,7 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
                   <span>Download</span>
                 </>
               )}
-            </button>
+            </motion.button>
           </div>
 
           {/* Status & Feedback Area */}
@@ -347,6 +355,6 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
           )}
         </div>
       </div>
-    </section>
+    </motion.section>
   );
 };

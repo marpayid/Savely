@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'motion/react';
 
 export const SupportedFormats: React.FC = () => {
   const sections = [
@@ -25,7 +26,13 @@ export const SupportedFormats: React.FC = () => {
   ];
 
   return (
-    <section className="max-w-2xl mx-auto px-4 sm:px-6 my-16 space-y-10 text-center">
+    <motion.section
+      initial={{ opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '-40px' }}
+      transition={{ duration: 0.4, ease: 'easeOut' }}
+      className="max-w-2xl mx-auto px-4 sm:px-6 my-16 space-y-10 text-center"
+    >
       {sections.map((sec) => (
         <div key={sec.title} className="space-y-2">
           <h2 className="text-lg sm:text-xl font-bold text-slate-100 tracking-tight">
@@ -36,7 +43,7 @@ export const SupportedFormats: React.FC = () => {
           </p>
         </div>
       ))}
-    </section>
+    </motion.section>
   );
 };
 
