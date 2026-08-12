@@ -7,9 +7,11 @@ export const Header: React.FC = () => {
       <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         {/* Logo */}
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/20 text-white font-bold">
-            <Download className="w-5 h-5 stroke-[2.5]" />
-          </div>
+          <img
+            src="https://cdn.phototourl.com/free/2026-08-12-fbc1986f-c197-48c4-a29b-a7ea3802232b.jpg"
+            alt="Savely Logo"
+            className="w-9 h-9 rounded-xl object-cover shadow-lg shadow-blue-500/20 border border-slate-700/50"
+          />
           <div>
             <span className="text-lg font-bold tracking-tight text-white flex items-center gap-1.5">
               Savely

@@ -7,9 +7,11 @@ export const Footer: React.FC = () => {
       <div className="max-w-3xl mx-auto px-4 flex flex-col items-center justify-center gap-4">
         <div className="flex flex-col items-center gap-1">
           <div className="flex items-center gap-2 text-slate-200 font-bold text-base">
-            <div className="w-6 h-6 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center border border-blue-500/20">
-              <Download className="w-3.5 h-3.5" />
-            </div>
+            <img
+              src="https://cdn.phototourl.com/free/2026-08-12-fbc1986f-c197-48c4-a29b-a7ea3802232b.jpg"
+              alt="Savely Logo"
+              className="w-6 h-6 rounded-lg object-cover border border-slate-700/50"
+            />
             <span>Savely</span>
           </div>
           <p className="text-xs text-slate-400 font-medium">Simple. Fast. Download.</p>
