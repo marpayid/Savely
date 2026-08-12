@@ -558,14 +558,50 @@ app.get('/api/download', async (req, res) => {
     return res.status(400).send('URL target unduhan tidak valid.');
   }
 
-  // Redirect browser directly to the media URL to avoid Netlify Function 6MB payload limits
+  // Proxy stream media content directly to the browser for valid download
+  const safeFilename = (customFilename || 'download-file.mp4')
+    .replace(/[\r\n\t]/g, ' ')
+    .replace(/[/\\?%*:|"<>]/g, '_')
+    .trim() || 'download-file.mp4';
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+
+    const mediaRes = await fetch(targetUrl, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': '*/*',
+        'Referer': targetUrl.includes('tiktok') ? 'https://www.tiktok.com/' : 'https://google.com/',
+      },
+    });
+    clearTimeout(timeout);
+
+    if (mediaRes.ok) {
+      const contentType = mediaRes.headers.get('content-type') || 'video/mp4';
+      const cleanType = contentType.toLowerCase().includes('text/html') ? 'video/mp4' : contentType;
+      const arrayBuffer = await mediaRes.arrayBuffer();
+
+      res.setHeader('Content-Type', cleanType);
+      res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(safeFilename)}"`);
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+
+      return res.status(200).send(Buffer.from(arrayBuffer));
+    }
+  } catch {
+    // Fallback to redirect if proxy stream fails
+  }
+
   return res.redirect(302, targetUrl);
 });
 
 export { app };
 
 async function main() {
-  if (!process.env.NETLIFY && !process.env.LAMBDA_TASK_ROOT && !process.env.AWS_LAMBDA_FUNCTION_NAME) {
+  if (!process.env.NETLIFY && !process.env.VERCEL && !process.env.LAMBDA_TASK_ROOT && !process.env.AWS_LAMBDA_FUNCTION_NAME) {
     if (process.env.NODE_ENV !== 'production') {
       const { createServer: createViteServer } = await import('vite');
       const vite = await createViteServer({

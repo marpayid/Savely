@@ -136,26 +136,25 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
       }
 
       // Metadata received successfully
+      const downloadTargetUrl = (typeof data.downloadUrl === 'string' && data.downloadUrl.trim())
+        ? data.downloadUrl.trim()
+        : (typeof data.url === 'string' && data.url.trim()) || targetUrl;
+      const downloadFilename = (typeof data.filename === 'string' && data.filename.trim())
+        ? data.filename.trim()
+        : 'download-file.mp4';
+
       const meta: FileMetadata = {
-        filename: (typeof data.filename === 'string' && data.filename) || 'download-file.mp4',
+        filename: downloadFilename,
         fileSize: (typeof data.fileSize === 'number' && data.fileSize) || 0,
         contentType: (typeof data.contentType === 'string' && data.contentType) || 'application/octet-stream',
         extension: (typeof data.extension === 'string' && data.extension) || 'MP4',
         category: (typeof data.category === 'string' && data.category) || 'Video',
-        url: (typeof data.url === 'string' && data.url) || targetUrl,
+        url: downloadTargetUrl,
       };
 
       setFileMetadata(meta);
       setStatus('downloading');
       setStatusMessage('Mengunduh data berkas...');
-
-      // Initiate file download
-      const downloadTargetUrl = (typeof data.downloadUrl === 'string' && data.downloadUrl.trim())
-        ? data.downloadUrl.trim()
-        : targetUrl;
-      const downloadFilename = (typeof data.filename === 'string' && data.filename.trim())
-        ? data.filename.trim()
-        : 'download-file.mp4';
 
       await downloadFileViaBlob(downloadTargetUrl, downloadFilename, (msg) => setStatusMessage(msg));
 
@@ -164,7 +163,10 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
       setStatusMessage('Download berhasil');
       onToast('Download berhasil!', 'success');
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Terjadi kesalahan tidak terduga saat memproses unduhan.';
+      let msg = err instanceof Error ? err.message : 'Terjadi kesalahan tidak terduga saat memproses unduhan.';
+      if (msg.includes('HTML') || msg.includes('404') || msg.includes('NOT_FOUND') || msg.includes('Page Not Found')) {
+        msg = 'Gagal memproses file media. Silakan periksa kembali URL yang Anda masukkan.';
+      }
       setErrorMessage(msg);
       setStatus('error');
     }

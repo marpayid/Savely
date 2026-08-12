@@ -119,11 +119,61 @@ export async function resolveTikTokClientSide(targetUrl: string) {
   return null;
 }
 
+export async function resolveCobaltClientSide(targetUrl: string) {
+  const instances = [
+    'https://api.cobalt.tools',
+    'https://cobalt-api.kwiatekm.com',
+    'https://co.wuk.sh',
+  ];
+
+  for (const instance of instances) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 7000);
+      const res = await fetch(`${instance}/`, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url: targetUrl }),
+      });
+      clearTimeout(timeout);
+
+      if (res.ok) {
+        const json = await res.json();
+        const mediaUrl = json.url || (json.picker && json.picker[0]?.url);
+        if (mediaUrl && typeof mediaUrl === 'string') {
+          const filename = json.filename || 'video.mp4';
+          return {
+            ok: true,
+            filename,
+            fileSize: 0,
+            contentType: 'video/mp4',
+            extension: 'MP4',
+            category: 'Video',
+            downloadUrl: mediaUrl,
+            url: targetUrl,
+          };
+        }
+      }
+    } catch {
+      // Try next instance
+    }
+  }
+  return null;
+}
+
 export async function resolveMediaClientSide(targetUrl: string) {
   if (isTikTokUrl(targetUrl)) {
     const tikTokRes = await resolveTikTokClientSide(targetUrl);
     if (tikTokRes) return tikTokRes;
   }
+
+  // Try Cobalt resolver for other social media video links
+  const cobaltRes = await resolveCobaltClientSide(targetUrl);
+  if (cobaltRes) return cobaltRes;
 
   let filename = 'download-file.mp4';
   let category = 'Video';
