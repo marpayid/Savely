@@ -55,6 +55,25 @@ app.use((req, _res, next) => {
   next();
 });
 
+// Explicit SEO routes for robots.txt & sitemap.xml
+app.get('/robots.txt', (_req, res) => {
+  res.setHeader('Content-Type', 'text/plain');
+  res.send(`User-agent: *\nAllow: /\n\nSitemap: https://savely.web.id/sitemap.xml\n`);
+});
+
+app.get('/sitemap.xml', (_req, res) => {
+  res.setHeader('Content-Type', 'application/xml');
+  res.send(`<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemap.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://savely.web.id/</loc>
+    <lastmod>2026-08-12</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>`);
+});
+
 // Common MIME types to Extension and Category mapping
 const MIME_MAP: Record<string, { ext: string; category: string }> = {
   'video/mp4': { ext: 'mp4', category: 'Video' },

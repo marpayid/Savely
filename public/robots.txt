@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://savely.web.id/sitemap.xml
