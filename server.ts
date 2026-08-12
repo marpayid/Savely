@@ -31,7 +31,7 @@ app.use((_req, res, next) => {
   next();
 });
 
-// Normalize URL paths for Netlify Functions / redirects
+// Normalize URL paths for Netlify Functions, Vercel Serverless, & direct redirects
 app.use((req, _res, next) => {
   if (req.url.startsWith('/.netlify/functions/api')) {
     req.url = req.url.replace('/.netlify/functions/api', '/api');
@@ -41,6 +41,17 @@ app.use((req, _res, next) => {
   ) {
     req.url = '/api' + req.url;
   }
+
+  // Fallback for Vercel Serverless when path is stripped to / or /api
+  const urlPath = req.url.split('?')[0];
+  if ((urlPath === '/api' || urlPath === '/api/' || urlPath === '/' || urlPath === '/api/index') && req.query.url) {
+    if (req.url.includes('download')) {
+      req.url = '/api/download' + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '');
+    } else {
+      req.url = '/api/inspect' + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '');
+    }
+  }
+
   next();
 });
 
