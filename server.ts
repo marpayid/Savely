@@ -189,6 +189,13 @@ interface ResolvedTikTokMedia {
   contentType: string;
   extension: string;
   category: string;
+  title?: string;
+  author?: string;
+  cover?: string;
+  views?: number | string;
+  likes?: number | string;
+  comments?: number | string;
+  shares?: number | string;
 }
 
 async function resolveTikTokMedia(rawUrl: string): Promise<ResolvedTikTokMedia | null> {
@@ -219,6 +226,8 @@ async function resolveTikTokMedia(rawUrl: string): Promise<ResolvedTikTokMedia |
           const rawTitle = json.data.title || 'tiktok_video';
           const titleClean = sanitizeFilename(rawTitle.substring(0, 50)) || 'tiktok_video';
           const filename = titleClean.endsWith('.mp4') ? titleClean : `${titleClean}.mp4`;
+          const author = json.data.author?.nickname ? `@${json.data.author.unique_id || json.data.author.nickname}` : (json.data.author?.unique_id ? `@${json.data.author.unique_id}` : '');
+          const cover = json.data.cover || json.data.origin_cover || '';
 
           return {
             filename,
@@ -227,6 +236,13 @@ async function resolveTikTokMedia(rawUrl: string): Promise<ResolvedTikTokMedia |
             contentType: 'video/mp4',
             extension: 'MP4',
             category: 'Video',
+            title: json.data.title || titleClean,
+            author,
+            cover,
+            views: json.data.play_count,
+            likes: json.data.digg_count || json.data.likes_count || json.data.like_count,
+            comments: json.data.comment_count,
+            shares: json.data.share_count,
           };
         }
       }
@@ -257,6 +273,8 @@ async function resolveTikTokMedia(rawUrl: string): Promise<ResolvedTikTokMedia |
           const rawTitle = json.data.title || 'tiktok_video';
           const titleClean = sanitizeFilename(rawTitle.substring(0, 50)) || 'tiktok_video';
           const filename = titleClean.endsWith('.mp4') ? titleClean : `${titleClean}.mp4`;
+          const author = json.data.author?.nickname ? `@${json.data.author.unique_id || json.data.author.nickname}` : (json.data.author?.unique_id ? `@${json.data.author.unique_id}` : '');
+          const cover = json.data.cover || json.data.origin_cover || '';
 
           return {
             filename,
@@ -265,6 +283,13 @@ async function resolveTikTokMedia(rawUrl: string): Promise<ResolvedTikTokMedia |
             contentType: 'video/mp4',
             extension: 'MP4',
             category: 'Video',
+            title: json.data.title || titleClean,
+            author,
+            cover,
+            views: json.data.play_count,
+            likes: json.data.digg_count || json.data.likes_count || json.data.like_count,
+            comments: json.data.comment_count,
+            shares: json.data.share_count,
           };
         }
       }

@@ -13,6 +13,12 @@ import {
   Image as ImageIcon,
   Archive,
   File,
+  Play,
+  Heart,
+  MessageCircle,
+  Share2,
+  User,
+  RotateCcw,
 } from 'lucide-react';
 import { FileMetadata, DownloadStatus } from '../types';
 import { formatBytes, downloadFileViaBlob, getApiBaseUrl, resolveMediaClientSide } from '../lib/utils';
@@ -32,6 +38,16 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
   const [statusMessage, setStatusMessage] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [fileMetadata, setFileMetadata] = useState<FileMetadata | null>(null);
+
+  // Helper for formatting stat numbers (e.g. 1.2M, 45.2K)
+  const formatStatNumber = (num: number | string | undefined): string | null => {
+    if (num === undefined || num === null || num === '') return null;
+    const n = typeof num === 'string' ? parseInt(num, 10) : num;
+    if (isNaN(n) || n <= 0) return typeof num === 'string' && num.trim() ? num : null;
+    if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
+    if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, '') + 'K';
+    return n.toLocaleString();
+  };
 
   // Helper for icon based on category
   const getCategoryIcon = (category: string) => {
@@ -150,6 +166,13 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
         extension: (typeof data.extension === 'string' && data.extension) || 'MP4',
         category: (typeof data.category === 'string' && data.category) || 'Video',
         url: downloadTargetUrl,
+        title: (typeof data.title === 'string' && data.title.trim()) || downloadFilename.replace(/\.mp4$/i, ''),
+        author: (typeof data.author === 'string' && data.author.trim()) || '',
+        cover: (typeof data.cover === 'string' && data.cover.trim()) || '',
+        views: (data.views as number | string) || undefined,
+        likes: (data.likes as number | string) || undefined,
+        comments: (data.comments as number | string) || undefined,
+        shares: (data.shares as number | string) || undefined,
       };
 
       setFileMetadata(meta);
@@ -307,58 +330,145 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
             )}
           </div>
 
-          {/* File Information Card (If inspected successfully) */}
+          {/* Result Area (If inspected successfully) */}
           {fileMetadata && (
-            <div className="mt-5 pt-4 border-t border-slate-800">
-              <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2.5 flex items-center justify-between">
-                <span>Informasi File Terdeteksi</span>
-                <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                  {fileMetadata.extension}
-                </span>
-              </div>
-
-              <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 min-w-0 w-full overflow-hidden">
-                <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1 w-full overflow-hidden">
-                  <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 flex-shrink-0 mt-0.5 sm:mt-0">
-                    {getCategoryIcon(fileMetadata.category)}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25 }}
+              className="mt-4 pt-4 border-t border-slate-800/80 w-full text-left"
+            >
+              {/* 1. VIDEO PREVIEW (Compact preview height with play overlay) */}
+              <div className="relative w-full h-36 sm:h-44 rounded-lg overflow-hidden bg-slate-950/90 border border-slate-800/70 mb-3 group">
+                {fileMetadata.cover ? (
+                  <img
+                    src={fileMetadata.cover}
+                    alt={fileMetadata.title || fileMetadata.filename}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center bg-slate-950 text-slate-500 gap-1.5">
+                    <Video className="w-9 h-9 text-blue-400/80" />
+                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
+                      {fileMetadata.extension || 'MP4'}
+                    </span>
                   </div>
-                  <div className="min-w-0 flex-1 overflow-hidden">
-                    <p
-                      className="text-sm font-semibold text-white leading-snug break-words max-w-full"
-                      style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
-                      title={fileMetadata.filename}
-                    >
-                      {fileMetadata.filename}
-                    </p>
-                    <div className="flex items-center gap-2 text-xs text-slate-400 mt-1 flex-wrap">
-                      <span>{formatBytes(fileMetadata.fileSize)}</span>
-                      <span>•</span>
-                      <span>{fileMetadata.category}</span>
-                      <span>•</span>
-                      <span className="text-slate-500 break-all">{fileMetadata.contentType}</span>
-                    </div>
+                )}
+
+                {/* Centered Play Button Overlay */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-slate-950/65 backdrop-blur-xs border border-white/20 flex items-center justify-center text-white shadow-md transition-transform duration-300 group-hover:scale-110">
+                    <Play className="w-4 h-4 sm:w-5 sm:h-5 text-white fill-white ml-0.5" />
                   </div>
                 </div>
 
+                {/* Subtle Dark Gradient at Bottom */}
+                <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent pointer-events-none" />
+              </div>
+
+              {/* 2. INFORMASI VIDEO */}
+              <div className="mb-3 space-y-1">
+                {/* Video Title */}
+                <h3
+                  className="text-sm sm:text-base font-bold text-white leading-snug tracking-tight line-clamp-2 break-words"
+                  title={fileMetadata.title || fileMetadata.filename}
+                >
+                  {fileMetadata.title || fileMetadata.filename}
+                </h3>
+
+                {/* TikTok Username */}
+                {fileMetadata.author && (
+                  <div className="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
+                    <User className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
+                    <span>{fileMetadata.author.startsWith('@') ? fileMetadata.author : `@${fileMetadata.author}`}</span>
+                  </div>
+                )}
+
+                {/* Statistics if available */}
+                {(fileMetadata.views !== undefined ||
+                  fileMetadata.likes !== undefined ||
+                  fileMetadata.comments !== undefined ||
+                  fileMetadata.shares !== undefined) && (
+                  <div className="flex items-center gap-3 text-xs text-slate-400 pt-0.5 flex-wrap font-medium">
+                    {formatStatNumber(fileMetadata.views) && (
+                      <span className="flex items-center gap-1 text-slate-300">
+                        <Play className="w-3 h-3 text-blue-400 fill-blue-400" />
+                        <span>{formatStatNumber(fileMetadata.views)} views</span>
+                      </span>
+                    )}
+                    {formatStatNumber(fileMetadata.likes) && (
+                      <span className="flex items-center gap-1 text-slate-300">
+                        <Heart className="w-3 h-3 text-rose-400 fill-rose-400" />
+                        <span>{formatStatNumber(fileMetadata.likes)} likes</span>
+                      </span>
+                    )}
+                    {formatStatNumber(fileMetadata.comments) && (
+                      <span className="flex items-center gap-1 text-slate-300">
+                        <MessageCircle className="w-3 h-3 text-slate-400" />
+                        <span>{formatStatNumber(fileMetadata.comments)} comments</span>
+                      </span>
+                    )}
+                    {formatStatNumber(fileMetadata.shares) && (
+                      <span className="flex items-center gap-1 text-slate-300">
+                        <Share2 className="w-3 h-3 text-slate-400" />
+                        <span>{formatStatNumber(fileMetadata.shares)} shares</span>
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* 3. DOWNLOAD ACTION (ONE SINGLE BLUE BUTTON, STRICTLY 1 LINE) */}
+              <button
+                type="button"
+                disabled={status === 'downloading'}
+                onClick={async () => {
+                  try {
+                    onToast('Mengunduh berkas...', 'info');
+                    await downloadFileViaBlob(fileMetadata.url, fileMetadata.filename, (msg) => setStatusMessage(msg));
+                    onToast('Download berhasil!', 'success');
+                  } catch (err: unknown) {
+                    const msg = err instanceof Error ? err.message : 'Gagal mengunduh.';
+                    onToast(msg, 'error');
+                  }
+                }}
+                className="w-full h-12 sm:h-13 px-3 sm:px-5 bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-[0.99] text-white font-bold rounded-lg shadow-sm flex items-center justify-center gap-2 transition-all duration-200 text-xs sm:text-sm border border-blue-400/30 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap overflow-hidden"
+              >
+                <Download className="w-4 h-4 sm:w-5 sm:h-5 text-white flex-shrink-0" />
+                <span className="whitespace-nowrap tracking-tight">Download (No Watermark)</span>
+              </button>
+
+              {/* 4. DETAIL FILE (Minimal & Seamless) */}
+              <div className="mt-2 text-center">
+                <p className="text-xs font-semibold text-slate-300">
+                  {fileMetadata.extension || 'MP4'}
+                  {fileMetadata.fileSize > 0 && ` · ${formatBytes(fileMetadata.fileSize)}`}
+                </p>
+                <p className="text-[11px] text-slate-400/80 truncate max-w-full mt-0.5 px-2">
+                  {fileMetadata.filename}
+                </p>
+              </div>
+
+              {/* 5. "DOWNLOAD VIDEO LAIN" */}
+              <div className="mt-3 pt-2 border-t border-slate-800/60 flex justify-center">
                 <button
                   type="button"
-                  onClick={async () => {
-                    try {
-                      onToast('Mengunduh ulang berkas...', 'info');
-                      await downloadFileViaBlob(fileMetadata.url, fileMetadata.filename);
-                      onToast('Download berhasil!', 'success');
-                    } catch (err: unknown) {
-                      const msg = err instanceof Error ? err.message : 'Gagal mengunduh.';
-                      onToast(msg, 'error');
-                    }
+                  onClick={() => {
+                    setFileMetadata(null);
+                    setStatus('idle');
+                    setErrorMessage('');
+                    setUrlInput('');
                   }}
-                  className="w-full sm:w-auto px-4 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 hover:text-white rounded-lg border border-slate-700 flex items-center justify-center gap-1.5 transition duration-150"
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-white transition-colors py-1 px-3 rounded-md hover:bg-slate-800/40 cursor-pointer"
                 >
-                  <Download className="w-3.5 h-3.5 text-blue-400" />
-                  <span>Unduh Lagi</span>
+                  <RotateCcw className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Download Video Lain</span>
                 </button>
               </div>
-            </div>
+            </motion.div>
           )}
         </div>
       </div>

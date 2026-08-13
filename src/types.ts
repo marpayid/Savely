@@ -5,6 +5,13 @@ export interface FileMetadata {
   extension: string;
   category: string;
   url: string;
+  title?: string;
+  author?: string;
+  cover?: string;
+  views?: number | string;
+  likes?: number | string;
+  comments?: number | string;
+  shares?: number | string;
 }
 
 export interface InspectResult {

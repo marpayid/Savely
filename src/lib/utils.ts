@@ -70,6 +70,8 @@ export async function resolveTikTokClientSide(targetUrl: string) {
           const rawTitle = json.data.title || 'tiktok_video';
           const cleanTitle = rawTitle.replace(/[/\\?%*:|"<>#\r\n\t]/g, '_').trim().substring(0, 50) || 'tiktok_video';
           const filename = cleanTitle.toLowerCase().endsWith('.mp4') ? cleanTitle : `${cleanTitle}.mp4`;
+          const author = json.data.author?.nickname ? `@${json.data.author.unique_id || json.data.author.nickname}` : (json.data.author?.unique_id ? `@${json.data.author.unique_id}` : '');
+          const cover = json.data.cover || json.data.origin_cover || '';
           return {
             ok: true,
             filename,
@@ -79,6 +81,13 @@ export async function resolveTikTokClientSide(targetUrl: string) {
             category: 'Video',
             downloadUrl: playUrl,
             url: targetUrl,
+            title: json.data.title || cleanTitle,
+            author,
+            cover,
+            views: json.data.play_count,
+            likes: json.data.digg_count || json.data.likes_count || json.data.like_count,
+            comments: json.data.comment_count,
+            shares: json.data.share_count,
           };
         }
       }
