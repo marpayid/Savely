@@ -441,9 +441,6 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
                 <span className="whitespace-nowrap tracking-tight">Download (No Watermark)</span>
               </button>
 
-              {/* Banner 11566741 Placement */}
-              <div id="monetag-banner-11566741" className="w-full my-1.5 flex justify-center items-center overflow-hidden min-h-0"></div>
-
               {/* 4. DETAIL FILE (Minimal & Seamless) */}
               <div className="mt-2 text-center">
                 <p className="text-xs font-semibold text-slate-300">
