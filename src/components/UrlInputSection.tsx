@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import {
   Download,
@@ -194,8 +194,14 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
             URL File / Media
           </label>
 
-          {/* Large Input Box + Control Buttons */}
-          <div className="relative flex flex-col sm:flex-row items-stretch gap-2.5">
+          {/* Form Download */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleStartDownload();
+            }}
+            className="relative flex flex-col sm:flex-row items-stretch gap-2.5"
+          >
             <div className="relative flex-1 min-w-0">
               <input
                 id="url-input"
@@ -244,8 +250,7 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
 
             {/* Download Main Button */}
             <motion.button
-              type="button"
-              onClick={() => handleStartDownload()}
+              type="submit"
               disabled={status === 'inspecting' || status === 'downloading'}
               whileHover={{ y: -1.5 }}
               whileTap={{ scale: 0.98 }}
@@ -263,7 +268,7 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
                 </>
               )}
             </motion.button>
-          </div>
+          </form>
 
           {/* Status & Feedback Area */}
           <div className="mt-4">
