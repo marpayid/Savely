@@ -426,11 +426,17 @@ export const UrlInputSection: React.FC<UrlInputSectionProps> = ({
                 type="button"
                 disabled={status === 'downloading'}
                 onClick={async () => {
+                  if (status === 'downloading' || !fileMetadata) return;
                   try {
+                    setStatus('downloading');
+                    setStatusMessage('Mengunduh berkas media...');
                     onToast('Mengunduh berkas...', 'info');
                     await downloadFileViaBlob(fileMetadata.url, fileMetadata.filename, (msg) => setStatusMessage(msg));
+                    setStatus('success');
+                    setStatusMessage('Download berhasil');
                     onToast('Download berhasil!', 'success');
                   } catch (err: unknown) {
+                    setStatus('success');
                     const msg = err instanceof Error ? err.message : 'Gagal mengunduh.';
                     onToast(msg, 'error');
                   }

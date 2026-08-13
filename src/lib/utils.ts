@@ -237,31 +237,61 @@ export async function resolveMediaClientSide(targetUrl: string) {
 
 export function triggerDirectAnchorDownload(url: string, filename: string): void {
   try {
+    const cleanUrl = url.trim().replace(/[\u200B-\u200D\uFEFF]/g, '');
+    let safeName = (filename || 'download-file.mp4')
+      .replace(/[/\\?%*:|"<>#\r\n\t]/g, '_')
+      .trim() || 'download-file.mp4';
+
+    if (!safeName.toLowerCase().endsWith('.mp4') &&
+        !safeName.toLowerCase().endsWith('.webm') &&
+        !safeName.toLowerCase().endsWith('.mov')) {
+      safeName += '.mp4';
+    }
+
     const a = document.createElement('a');
     a.style.display = 'none';
-    a.href = url;
+    a.href = cleanUrl;
+    a.download = safeName;
+    document.body.appendChild(a);
+    a.click();
+
+    setTimeout(() => {
+      try {
+        if (a.parentNode) a.parentNode.removeChild(a);
+      } catch {
+        // ignore
+      }
+    }, 4000);
+  } catch {
+    const proxyUrl = `${getApiBaseUrl()}/api/download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename || 'download-file.mp4')}`;
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = proxyUrl;
     a.download = filename || 'download-file.mp4';
-    a.setAttribute('target', '_blank');
-    a.setAttribute('rel', 'noopener noreferrer');
     document.body.appendChild(a);
     a.click();
     setTimeout(() => {
       try {
-        a.remove();
+        if (a.parentNode) a.parentNode.removeChild(a);
       } catch {
         // ignore
       }
-    }, 2000);
-  } catch {
-    window.open(url, '_blank');
+    }, 4000);
   }
 }
+
+let activeDownloadLock = false;
 
 export async function downloadFileViaBlob(
   targetUrl: string,
   filename: string,
   onProgress?: (msg: string) => void
 ): Promise<void> {
+  if (activeDownloadLock) {
+    console.warn('[Download] Aborting concurrent duplicate download request.');
+    return;
+  }
+
   if (!targetUrl || typeof targetUrl !== 'string') {
     throw new Error('URL berkas tidak valid.');
   }
@@ -271,174 +301,123 @@ export async function downloadFileViaBlob(
     throw new Error('URL berkas tidak boleh kosong.');
   }
 
-  const safeFilename = (filename || 'download-file.mp4')
+  let safeFilename = (filename || 'download-video.mp4')
     .replace(/[\r\n\t]/g, ' ')
-    .replace(/[/\\?%*:|"<>]/g, '_')
-    .trim() || 'download-file.mp4';
+    .replace(/[/\\?%*:|"<>#]/g, '_')
+    .trim() || 'download-video.mp4';
 
-  const isVideo = safeFilename.toLowerCase().endsWith('.mp4') ||
-    safeFilename.toLowerCase().endsWith('.webm') ||
-    safeFilename.toLowerCase().endsWith('.mov') ||
-    safeFilename.toLowerCase().endsWith('.m4v');
-  const targetMimeType = isVideo ? 'video/mp4' : 'application/octet-stream';
-
-  if (onProgress) onProgress('Mengunduh berkas media...');
-
-  let blob: Blob | null = null;
-
-  // Attempt 1: Direct browser fetch
-  if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
-    try {
-      const directRes = await fetch(cleanUrl);
-      const contentType = directRes.headers.get('content-type') || '';
-
-      if (directRes.ok && !contentType.toLowerCase().includes('text/html')) {
-        const rawBlob = await directRes.blob();
-        if (rawBlob && rawBlob.size > 0) {
-          blob = new Blob([rawBlob], { type: isVideo ? 'video/mp4' : (rawBlob.type || targetMimeType) });
-        }
-      }
-    } catch {
-      // Direct fetch failed (e.g. CORS)
-    }
+  if (!safeFilename.toLowerCase().endsWith('.mp4') &&
+      !safeFilename.toLowerCase().endsWith('.webm') &&
+      !safeFilename.toLowerCase().endsWith('.mov') &&
+      !safeFilename.toLowerCase().endsWith('.m4v')) {
+    safeFilename += '.mp4';
   }
 
-  // Attempt 2: Via /api/download redirect if available
-  if (!blob) {
-    try {
-      const apiBase = getApiBaseUrl();
-      const proxyUrl = `${apiBase}/api/download?url=${encodeURIComponent(cleanUrl)}&filename=${encodeURIComponent(safeFilename)}`;
+  const targetMimeType = 'video/mp4';
 
-      const res = await fetch(proxyUrl);
-      const contentType = res.headers.get('content-type') || '';
+  try {
+    activeDownloadLock = true;
+    if (onProgress) onProgress('Mengunduh berkas media...');
 
-      if (res.ok && !contentType.toLowerCase().includes('text/html')) {
-        if (!contentType.includes('application/json')) {
+    let blob: Blob | null = null;
+
+    // Attempt 1: Direct browser fetch
+    if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
+      try {
+        const directRes = await fetch(cleanUrl);
+        const contentType = (directRes.headers.get('content-type') || '').toLowerCase();
+
+        if (directRes.ok && !contentType.includes('text/html')) {
+          const rawBlob = await directRes.blob();
+          if (rawBlob && rawBlob.size > 0) {
+            blob = new Blob([rawBlob], { type: targetMimeType });
+          }
+        }
+      } catch {
+        // Direct fetch failed (e.g. CORS)
+      }
+    }
+
+    // Attempt 2: Via backend proxy endpoint (/api/download)
+    if (!blob) {
+      try {
+        const apiBase = getApiBaseUrl();
+        const proxyUrl = `${apiBase}/api/download?url=${encodeURIComponent(cleanUrl)}&filename=${encodeURIComponent(safeFilename)}`;
+
+        const res = await fetch(proxyUrl);
+        const contentType = (res.headers.get('content-type') || '').toLowerCase();
+
+        if (res.ok && !contentType.includes('text/html') && !contentType.includes('application/json')) {
           const rawBlob = await res.blob();
           if (rawBlob && rawBlob.size > 0) {
-            blob = new Blob([rawBlob], { type: isVideo ? 'video/mp4' : (rawBlob.type || targetMimeType) });
-          }
-        }
-      }
-    } catch {
-      // Proxy fetch failed
-    }
-  }
-
-  // Attempt 2.5: Public CORS proxy fallback if direct and backend proxy failed
-  if (!blob && (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://'))) {
-    const corsProxies = [
-      `https://corsproxy.io/?${encodeURIComponent(cleanUrl)}`,
-      `https://api.allorigins.win/raw?url=${encodeURIComponent(cleanUrl)}`,
-    ];
-
-    for (const proxyEndpoint of corsProxies) {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 12000);
-        const proxyRes = await fetch(proxyEndpoint, { signal: controller.signal });
-        clearTimeout(timeout);
-
-        const contentType = proxyRes.headers.get('content-type') || '';
-        if (proxyRes.ok && !contentType.toLowerCase().includes('text/html')) {
-          const rawBlob = await proxyRes.blob();
-          if (rawBlob && rawBlob.size > 0) {
-            blob = new Blob([rawBlob], { type: isVideo ? 'video/mp4' : (rawBlob.type || targetMimeType) });
-            break;
+            blob = new Blob([rawBlob], { type: targetMimeType });
           }
         }
       } catch {
-        // Try next proxy
+        // Proxy fetch failed
       }
     }
-  }
 
-  // Attempt 3: Direct anchor download fallback if blob fetch is blocked or API unavailable
-  if (!blob) {
-    if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
-      triggerDirectAnchorDownload(cleanUrl, safeFilename);
-      return;
-    }
-    throw new Error('Gagal mengunduh berkas video. Silakan coba lagi.');
-  }
+    // Attempt 2.5: CORS proxy fallbacks if direct and backend proxy failed
+    if (!blob && (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://'))) {
+      const corsProxies = [
+        `https://corsproxy.io/?${encodeURIComponent(cleanUrl)}`,
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(cleanUrl)}`,
+      ];
 
-  await triggerVideoDownloadOrShare(blob, safeFilename, targetMimeType, cleanUrl);
-}
+      for (const proxyEndpoint of corsProxies) {
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 12000);
+          const proxyRes = await fetch(proxyEndpoint, { signal: controller.signal });
+          clearTimeout(timeout);
 
-async function triggerVideoDownloadOrShare(
-  blob: Blob,
-  filename: string,
-  mimeType: string,
-  originalUrl: string
-): Promise<void> {
-  const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent || '' : '';
-  const isIOS = /iPhone|iPad|iPod/i.test(userAgent);
-  const isVideo = mimeType.startsWith('video/') || filename.toLowerCase().endsWith('.mp4') || filename.toLowerCase().endsWith('.webm');
-
-  // Force video/mp4 blob type for media files so OS media scanners recognize it as MP4 video
-  const videoMime = isVideo ? 'video/mp4' : (mimeType || 'application/octet-stream');
-  const videoBlob = isVideo && blob.type !== 'video/mp4'
-    ? new Blob([blob], { type: 'video/mp4' })
-    : blob;
-
-  // Clean ASCII filename for Web Share API and download compatibility
-  const safeAsciiName = filename
-    .replace(/[^\x20-\x7E]/g, '_')
-    .replace(/[/\\?%*:|"<>]/g, '_')
-    .trim() || 'video.mp4';
-  const shareFilename = isVideo && !safeAsciiName.toLowerCase().endsWith('.mp4')
-    ? `${safeAsciiName}.mp4`
-    : safeAsciiName;
-
-  // 1. iOS Safari Web Share API Flow (Opens native iOS Share Sheet with "Save Video" directly to Photos)
-  if (isIOS && typeof navigator !== 'undefined' && 'canShare' in navigator) {
-    try {
-      const file = new File([videoBlob], shareFilename, { type: videoMime });
-      if (navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: shareFilename,
-        });
-        return; // Single action completed natively via OS Share Sheet ("Save Video")
+          const contentType = (proxyRes.headers.get('content-type') || '').toLowerCase();
+          if (proxyRes.ok && !contentType.includes('text/html')) {
+            const rawBlob = await proxyRes.blob();
+            if (rawBlob && rawBlob.size > 0) {
+              blob = new Blob([rawBlob], { type: targetMimeType });
+              break;
+            }
+          }
+        } catch {
+          // Try next proxy
+        }
       }
-    } catch (shareErr: unknown) {
-      if (shareErr instanceof Error && shareErr.name === 'AbortError') {
-        // User explicitly canceled/dismissed the share sheet: STOP, do not trigger secondary download
-        return;
-      }
-      // If navigator.share fails or gesture expired, fallback smoothly to anchor download without error popups
     }
-  }
 
-  // 2. Desktop / Non-Mobile Browser Download Flow (Single Action via Blob Anchor)
-  let blobUrl: string | null = null;
-  try {
-    blobUrl = window.URL.createObjectURL(videoBlob);
-    const a = document.createElement('a');
-    a.style.display = 'none';
-    a.href = blobUrl;
-    a.download = shareFilename;
-    a.setAttribute('type', videoMime);
-    a.setAttribute('target', '_blank');
-    a.setAttribute('rel', 'noopener noreferrer');
-    document.body.appendChild(a);
-    a.click();
+    // Attempt 3: Native Browser Blob Anchor Trigger (Cross-platform compatibility for iOS Safari, Android Chrome, and Desktop)
+    if (blob) {
+      const videoBlob = new Blob([blob], { type: targetMimeType });
+      const blobUrl = window.URL.createObjectURL(videoBlob);
 
-    setTimeout(() => {
-      try {
-        if (blobUrl) window.URL.revokeObjectURL(blobUrl);
-        a.remove();
-      } catch {
-        // ignore
-      }
-    }, 4000);
-  } catch {
-    if (blobUrl) window.URL.revokeObjectURL(blobUrl);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = blobUrl;
+      a.download = safeFilename;
+      document.body.appendChild(a);
+      a.click();
 
-    // Fallback: direct window open if blob creation or anchor click fails
-    if (originalUrl) {
-      window.open(originalUrl, '_blank');
+      setTimeout(() => {
+        try {
+          if (a.parentNode) a.parentNode.removeChild(a);
+          window.URL.revokeObjectURL(blobUrl);
+        } catch {
+          // ignore
+        }
+      }, 10000);
+
+      return; // Single download action completed cleanly
     }
+
+    // Fallback if blob fetch is restricted or blocked: Trigger direct attachment via backend
+    const fallbackProxyUrl = `${getApiBaseUrl()}/api/download?url=${encodeURIComponent(cleanUrl)}&filename=${encodeURIComponent(safeFilename)}`;
+    triggerDirectAnchorDownload(fallbackProxyUrl, safeFilename);
+  } catch (err: unknown) {
+    throw err;
+  } finally {
+    activeDownloadLock = false;
   }
 }
+
 
