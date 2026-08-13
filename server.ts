@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 function getSafeDirname(): string {
@@ -74,6 +75,35 @@ app.get(['/sitemap.xml', '/api/sitemap.xml'], (_req, res) => {
     <priority>1.0</priority>
   </url>
 </urlset>`);
+});
+
+app.get(['/sw.js', '/api/sw.js'], (_req, res) => {
+  res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+  res.setHeader('Service-Worker-Allowed', '/');
+  res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+  const swPath = path.join(process.cwd(), 'public', 'sw.js');
+  const distSwPath = path.join(process.cwd(), 'dist', 'sw.js');
+  if (fs.existsSync(swPath)) {
+    res.sendFile(swPath);
+  } else if (fs.existsSync(distSwPath)) {
+    res.sendFile(distSwPath);
+  } else {
+    res.send(`// Monetag Service Worker Verification & Push Script
+try {
+  importScripts('https://fe244a.com/sw.js');
+} catch (e) {
+  // Fallback
+}
+
+self.addEventListener('install', () => {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim());
+});
+`);
+  }
 });
 
 // Common MIME types to Extension and Category mapping
