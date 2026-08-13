@@ -88,20 +88,12 @@ app.get(['/sw.js', '/api/sw.js'], (_req, res) => {
   } else if (fs.existsSync(distSwPath)) {
     res.sendFile(distSwPath);
   } else {
-    res.send(`// Monetag Service Worker Verification & Push Script
-try {
-  importScripts('https://fe244a.com/sw.js');
-} catch (e) {
-  // Fallback
+    res.send(`self.options = {
+    "domain": "3nbf4.com",
+    "zoneId": 11564979
 }
-
-self.addEventListener('install', () => {
-  self.skipWaiting();
-});
-
-self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
-});
+self.lary = ""
+importScripts('https://3nbf4.com/act/files/service-worker.min.js?r=sw')
 `);
   }
 });
